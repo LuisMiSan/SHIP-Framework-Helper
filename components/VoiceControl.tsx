@@ -152,13 +152,13 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onCommand, view, currentSte
     return (
         <div className="fixed bottom-6 right-6 z-50">
             {feedback && (
-                <div className="absolute bottom-full right-0 mb-2 w-max bg-gray-700 text-white text-sm rounded-lg px-3 py-2 shadow-lg transition-opacity duration-300">
+                <div className="absolute bottom-full right-0 mb-2 w-max bg-slate-700 text-white text-sm rounded-lg px-3 py-2 shadow-lg transition-opacity duration-300">
                     {feedback}
                 </div>
             )}
             <button
                 onClick={handleToggleListening}
-                className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-offset-gray-900 ${
+                className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-offset-slate-200 ${
                     isListening
                     ? 'bg-red-500 text-white animate-pulse ring-red-400'
                     : 'bg-indigo-600 text-white hover:bg-indigo-500 hover:scale-110 ring-indigo-500'

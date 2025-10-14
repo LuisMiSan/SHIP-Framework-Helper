@@ -11,11 +11,22 @@ export interface StepData {
   aiResponseHistory: string[];
 }
 
+export interface UserProfile {
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+}
+
+export type ProjectStatus = 'pending' | 'success' | 'failed';
+
 export interface ArchivedProject {
   id: string;
   name: string;
   savedAt: string;
   data: StepData[];
+  userProfile: UserProfile;
+  status: ProjectStatus;
 }
 
 export type VoiceCommand =

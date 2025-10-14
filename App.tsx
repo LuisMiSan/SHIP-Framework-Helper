@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
-import { StepData, ArchivedProject, VoiceCommand } from './types';
+import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus } from './types';
 import ProgressBar from './components/ProgressBar';
 import StepCard from './components/IdeaInput';
 import SummaryDisplay from './components/ArchitectureDisplay';
@@ -8,6 +8,8 @@ import ApiKeySetup from './components/ApiKeySetup';
 import WelcomeScreen from './components/WelcomeScreen';
 import ArchiveView from './components/ArchiveView';
 import VoiceControl from './components/VoiceControl';
+import UserProfileSetup from './components/UserProfileSetup';
+import SaveProjectModal from './components/SaveProjectModal';
 
 const initialStepsData: StepData[] = [
   {
@@ -110,6 +112,23 @@ Tu tarea es dar un consejo claro y accionable. Responde con esta estructura, uti
   return previousResponse ? iterationPreamble + prompt : prompt;
 };
 
+const validateInput = (stepId: string, userInput: string): { isValid: boolean; message: string } => {
+  const trimmedInput = userInput.trim();
+
+  if (trimmedInput.length < 50) {
+    return {
+      isValid: false,
+      message: 'Tu descripción es muy corta. Intenta detallar más tu idea para obtener mejores sugerencias (mínimo 50 caracteres).',
+    };
+  }
+
+  // Se han eliminado todas las validaciones de palabras clave para fomentar un enfoque más empático y flexible.
+  // Confiamos en que la IA guíe al usuario para refinar sus ideas, en lugar de imponer reglas estrictas sobre cómo deben expresarlas.
+  // El único requisito es una longitud mínima para asegurar que la IA tenga suficiente contexto para proporcionar ayuda de calidad.
+
+  return { isValid: true, message: '' };
+};
+
 type View = 'welcome' | 'new_project' | 'archive' | 'view_archived';
 
 const App: React.FC = () => {
@@ -120,21 +139,77 @@ const App: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [stepsData, setStepsData] = useState<StepData[]>(initialStepsData);
   const [isProjectSaved, setIsProjectSaved] = useState(false);
+  
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [projectToSave, setProjectToSave] = useState<{ name: string } | null>(null);
+  const [profileSetupIntent, setProfileSetupIntent] = useState<'start_new' | null>(null);
+
 
   const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [apiKeyStatus, setApiKeyStatus] = useState<'valid' | 'missing' | 'invalid'>('valid');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const latestStateRef = useRef({ stepsData, currentStep });
 
+  // Keep the ref updated with the latest state for the auto-save interval
+  useEffect(() => {
+    latestStateRef.current = { stepsData, currentStep };
+  }, [stepsData, currentStep]);
+  
+  // Auto-save progress
+  useEffect(() => {
+    if (view !== 'new_project') {
+      return;
+    }
+  
+    const intervalId = setInterval(() => {
+      const { stepsData: latestStepsData, currentStep: latestCurrentStep } = latestStateRef.current;
+      // Don't save if the project is pristine and empty
+      const isPristine = latestStepsData.every(step => step.userInput.trim() === '' && step.aiResponse.trim() === '');
+      if (isPristine) {
+        return;
+      }
+        
+      setAutoSaveStatus('saving');
+      
+      try {
+        localStorage.setItem('ship-framework-data', JSON.stringify(latestStepsData));
+        localStorage.setItem('ship-framework-step', JSON.stringify(latestCurrentStep));
+        
+        setTimeout(() => setAutoSaveStatus('saved'), 500);
+        setTimeout(() => setAutoSaveStatus('idle'), 3000); // Hide notification after 3 seconds
+  
+      } catch (error) {
+        console.error("Failed to auto-save progress to localStorage", error);
+        setAutoSaveStatus('idle'); // Reset on error
+      }
+    }, 90000); // Auto-save every 90 seconds (1.5 minutes)
+  
+    return () => clearInterval(intervalId);
+  }, [view]);
 
-  // API Key Check & Initial view determination
+  // API Key Check & Initial data loading
   useEffect(() => {
     if (!process.env.API_KEY) {
       setApiKeyStatus('missing');
     }
 
     try {
+        const savedProfile = localStorage.getItem('ship-framework-user-profile');
+        if(savedProfile) {
+          setUserProfile(JSON.parse(savedProfile));
+        }
+
         const savedArchive = localStorage.getItem('ship-framework-archive');
         if (savedArchive) {
-          setArchive(JSON.parse(savedArchive));
+          try {
+            setArchive(JSON.parse(savedArchive));
+          } catch(e) {
+            console.error("Failed to parse archive, clearing.", e);
+            localStorage.removeItem('ship-framework-archive');
+          }
         }
 
         const savedData = localStorage.getItem('ship-framework-data');
@@ -154,6 +229,7 @@ const App: React.FC = () => {
                 return;
             }
         }
+        
         setView('welcome');
 
     } catch (error) {
@@ -163,35 +239,42 @@ const App: React.FC = () => {
 
   }, []);
 
-  // Save progress to localStorage
-  useEffect(() => {
-    if (view === 'new_project') {
-      try {
-        localStorage.setItem('ship-framework-data', JSON.stringify(stepsData));
-        localStorage.setItem('ship-framework-step', JSON.stringify(currentStep));
-      } catch (error) {
-        console.error("Failed to save progress to localStorage", error);
-      }
-    }
-  }, [stepsData, currentStep, view]);
-
-  // Save archive to localStorage
-  useEffect(() => {
+  const updateAndSaveArchive = (newArchive: ArchivedProject[]) => {
+    setArchive(newArchive);
     try {
-        localStorage.setItem('ship-framework-archive', JSON.stringify(archive));
+      if (newArchive.length > 0) {
+        localStorage.setItem('ship-framework-archive', JSON.stringify(newArchive));
+      } else {
+        localStorage.removeItem('ship-framework-archive');
+      }
     } catch (error) {
-        console.error("Failed to save archive to localStorage", error);
+      console.error("Failed to save archive to localStorage", error);
     }
-  }, [archive]);
+  };
 
   const handleInputChange = (value: string) => {
+    setValidationError(null);
     const newStepsData = [...stepsData];
     newStepsData[currentStep].userInput = value;
     setStepsData(newStepsData);
   };
 
+  const handleDictation = (text: string) => {
+    const currentInput = stepsData[currentStep].userInput;
+    const separator = currentInput.trim() && text ? ' ' : '';
+    handleInputChange(currentInput + separator + text);
+  };
+
   const handleGetAIHelp = async () => {
     const currentStepData = stepsData[currentStep];
+
+    const validation = validateInput(currentStepData.id, currentStepData.userInput);
+    if (!validation.isValid) {
+        setValidationError(validation.message);
+        return;
+    }
+    setValidationError(null);
+    
     if (!currentStepData.userInput.trim()) return;
 
     setError(null);
@@ -206,7 +289,10 @@ const App: React.FC = () => {
         stepToUpdate.aiResponse = '';
         
         if (previousResponse) {
-          stepToUpdate.aiResponseHistory = [previousResponse, ...stepToUpdate.aiResponseHistory];
+          const currentHistory = stepToUpdate.aiResponseHistory;
+          if (currentHistory.length === 0 || currentHistory[0] !== previousResponse) {
+            stepToUpdate.aiResponseHistory = [previousResponse, ...currentHistory];
+          }
         }
 
         return newData;
@@ -232,7 +318,7 @@ const App: React.FC = () => {
       
       const responseStream = await ai.models.generateContentStream({
         model: 'gemini-2.5-flash',
-        contents: prompt,
+        contents: [{ parts: [{ text: prompt }] }],
       });
 
       for await (const chunk of responseStream) {
@@ -245,7 +331,10 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Error getting AI help:", err);
       let isKeyError = false;
+      let detailedError = "Ocurrió un error inesperado.";
+
       if (err instanceof Error) {
+        detailedError = err.message;
         const lowerCaseError = err.message.toLowerCase();
         if (lowerCaseError.includes('api key not valid') || lowerCaseError.includes('invalid api key')) {
           setApiKeyStatus('invalid');
@@ -257,7 +346,7 @@ const App: React.FC = () => {
       }
       
       if (!isKeyError) {
-        setError("No pude contactar a la IA. Por favor, inténtalo de nuevo más tarde.");
+        setError(`No pude contactar a la IA. Por favor, inténtalo de nuevo más tarde. (Detalle: ${detailedError})`);
       }
 
     } finally {
@@ -271,6 +360,16 @@ const App: React.FC = () => {
 
   const goToNextStep = () => {
     if (currentStep < stepsData.length) {
+        const currentStepData = stepsData[currentStep];
+        const validation = validateInput(currentStepData.id, currentStepData.userInput);
+        if (!validation.isValid) {
+            setValidationError(validation.message);
+            return;
+        }
+    }
+    setValidationError(null);
+
+    if (currentStep < stepsData.length) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -281,7 +380,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRestart = () => {
+  const startNewProjectFlow = () => {
     try {
       localStorage.removeItem('ship-framework-data');
       localStorage.removeItem('ship-framework-step');
@@ -291,29 +390,116 @@ const App: React.FC = () => {
     setStepsData(initialStepsData);
     setCurrentStep(0);
     setError(null);
+    setValidationError(null);
     setIsProjectSaved(false);
-    setView('welcome');
+    setView('new_project');
   };
 
-  const handleSaveProject = (projectName: string) => {
-    if (!projectName) return;
-    const newArchivedProject: ArchivedProject = {
-        id: new Date().toISOString(),
-        name: projectName,
-        savedAt: new Date().toISOString(),
-        data: stepsData
-    };
-    setArchive([newArchivedProject, ...archive]);
-    setIsProjectSaved(true);
+  const handleRestart = () => {
+    if (!userProfile) {
+      setProfileSetupIntent('start_new');
+      setIsProfileModalOpen(true);
+    } else {
+      startNewProjectFlow();
+    }
   };
+
+  const handleSaveRequest = () => {
+    setIsSaveModalOpen(true);
+  };
+
+  const handleSaveProjectRequest = (projectName: string) => {
+    if (!projectName) return;
+    setIsSaveModalOpen(false);
+    setProjectToSave({ name: projectName });
+    if (!userProfile) {
+      setIsProfileModalOpen(true);
+    } else {
+      saveProject(projectName, userProfile);
+    }
+  };
+
+  const saveProject = (projectName: string, profile: UserProfile) => {
+      const newArchivedProject: ArchivedProject = {
+          id: new Date().toISOString(),
+          name: projectName,
+          savedAt: new Date().toISOString(),
+          data: stepsData,
+          userProfile: profile,
+          status: 'pending'
+      };
+      updateAndSaveArchive([newArchivedProject, ...archive]);
+      
+      try {
+        localStorage.removeItem('ship-framework-data');
+        localStorage.removeItem('ship-framework-step');
+      } catch (error) {
+        console.error("Failed to clear in-progress session from localStorage", error);
+      }
+      
+      setIsProjectSaved(true);
+      setProjectToSave(null);
+      setIsProfileModalOpen(false);
+      
+      setTimeout(() => {
+        setView('welcome');
+      }, 500); // Brief delay to show "Saved" status before navigating
+  };
+
+  const handleProfileSave = (profile: UserProfile) => {
+    setUserProfile(profile);
+    try {
+        localStorage.setItem('ship-framework-user-profile', JSON.stringify(profile));
+    } catch (error) {
+        console.error("Failed to save user profile to localStorage", error);
+    }
+
+    if (profileSetupIntent === 'start_new') {
+      setProfileSetupIntent(null);
+      setIsProfileModalOpen(false);
+      startNewProjectFlow();
+    } else if (projectToSave) {
+        saveProject(projectToSave.name, profile);
+    } else {
+        setIsProfileModalOpen(false);
+    }
+  };
+
 
   const handleDeleteProject = (projectId: string) => {
-    setArchive(archive.filter(p => p.id !== projectId));
+    updateAndSaveArchive(archive.filter(p => p.id !== projectId));
+  };
+  
+  const handleUpdateProjectStatus = (projectId: string, status: ProjectStatus) => {
+    updateAndSaveArchive(archive.map(p => p.id === projectId ? { ...p, status } : p));
   };
   
   const handleViewProject = (project: ArchivedProject) => {
     setSelectedArchivedProject(project);
     setView('view_archived');
+  };
+
+  const handleRestoreAIResponse = (responseToRestore: string) => {
+    setStepsData(prevData => {
+        const newData = [...prevData];
+        const stepToUpdate = newData[currentStep];
+
+        const currentResponse = stepToUpdate.aiResponse;
+        const oldHistory = stepToUpdate.aiResponseHistory;
+
+        let newHistory = oldHistory.filter(item => item !== responseToRestore);
+
+        if (currentResponse.trim()) {
+            newHistory.unshift(currentResponse);
+        }
+
+        newHistory.unshift(responseToRestore);
+
+        stepToUpdate.aiResponse = responseToRestore;
+        stepToUpdate.aiResponseHistory = newHistory;
+
+        return newData;
+    });
   };
 
   const handleVoiceCommand = (command: VoiceCommand, value?: string) => {
@@ -337,27 +523,21 @@ const App: React.FC = () => {
         case 'START_NEW':
             if (view === 'welcome') {
                 handleRestart();
-                setStepsData(initialStepsData);
-                setCurrentStep(0);
-                setView('new_project');
             }
             break;
         case 'VIEW_ARCHIVE':
-            if (view === 'welcome' && archive.length > 0) setView('archive');
+             // This command is now obsolete as archive is part of welcome view
             break;
         case 'GO_BACK':
-            if (view === 'archive' || view === 'view_archived') setView('welcome');
-            if (view === 'view_archived') setView('archive');
+            if (view === 'view_archived') setView('welcome');
             break;
         case 'SAVE_PROJECT':
             if (view === 'new_project' && currentStep === stepsData.length && !isProjectSaved) {
-                const projectName = window.prompt("Por favor, introduce un nombre para este proyecto:", "Proyecto Guardado por Voz");
-                if (projectName) handleSaveProject(projectName);
+                handleSaveRequest();
             }
             break;
         case 'DOWNLOAD_PDF':
-             if (view === 'new_project' && currentStep === stepsData.length) {
-                // We trigger a click on the button, as the PDF logic is complex and encapsulated
+             if ((view === 'new_project' && currentStep === stepsData.length) || view === 'view_archived') {
                 const downloadButton = document.getElementById('download-pdf-button');
                 downloadButton?.click();
             }
@@ -376,34 +556,27 @@ const App: React.FC = () => {
         case 'welcome':
             return (
                 <WelcomeScreen 
-                    onStartNew={() => {
-                      handleRestart(); // Clear old data
-                      setStepsData(initialStepsData); // Ensure clean state
-                      setCurrentStep(0);
-                      setView('new_project');
-                    }}
-                    onViewArchive={() => setView('archive')}
-                    hasArchive={archive.length > 0}
-                />
-            );
-        case 'archive':
-            return (
-                <ArchiveView 
+                    onStartNew={handleRestart}
                     archive={archive}
                     onViewProject={handleViewProject}
                     onDeleteProject={handleDeleteProject}
-                    onBack={() => setView('welcome')}
+                    onUpdateProjectStatus={handleUpdateProjectStatus}
                 />
             );
+        case 'archive':
+             // This view is deprecated, navigate to welcome instead.
+             // For safety, render a minimal fallback.
+            return <ArchiveView archive={[]} onBack={() => setView('welcome')} onDeleteProject={()=>{}} onUpdateProjectStatus={()=>{}} onViewProject={()=>{}}/>
         case 'view_archived':
             return (
                 <SummaryDisplay
-                    stepsData={selectedArchivedProject!.data}
+                    project={selectedArchivedProject!}
                     onRestart={handleRestart}
                     onSaveProject={() => {}} // Not applicable
                     isArchived={true}
                     isSaved={true}
-                    onBackToArchive={() => setView('archive')}
+                    onBackToArchive={() => setView('welcome')}
+                    onUpdateProjectStatus={handleUpdateProjectStatus}
                 />
             );
         case 'new_project':
@@ -411,15 +584,23 @@ const App: React.FC = () => {
                 <>
                     <ProgressBar steps={stepsData.map(s => s.title.split(': ')[1])} currentStep={currentStep} />
                     
-                    {error && <div className="my-4 text-center bg-red-900/50 border border-red-500 text-red-300 p-4 rounded-lg">{error}</div>}
+                    {error && <div className="my-4 text-center bg-red-100 border border-red-400 text-red-700 p-4 rounded-lg">{error}</div>}
 
                     {isSummaryStep ? (
                         <SummaryDisplay 
-                            stepsData={stepsData} 
+                            project={{ 
+                              id: 'current', 
+                              name: 'Proyecto Actual', 
+                              savedAt: new Date().toISOString(),
+                              data: stepsData,
+                              userProfile: userProfile || { name: '', company: '', email: '', phone: '' },
+                              status: 'pending',
+                            }}
                             onRestart={handleRestart} 
-                            onSaveProject={handleSaveProject} 
+                            onSaveProject={handleSaveRequest} 
                             isArchived={false}
                             isSaved={isProjectSaved}
+                            onUpdateProjectStatus={() => {}}
                         />
                     ) : (
                         <>
@@ -428,12 +609,15 @@ const App: React.FC = () => {
                             stepData={stepsData[currentStep]}
                             onInputChange={handleInputChange}
                             onGetAIHelp={handleGetAIHelp}
+                            validationError={validationError}
+                            onRestoreAIResponse={handleRestoreAIResponse}
+                            onDictate={handleDictation}
                         />
                         <div className="mt-6 flex justify-between">
                             <button
                             onClick={goToPrevStep}
                             disabled={currentStep === 0}
-                            className="px-6 py-2 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-800 disabled:cursor-not-allowed"
+                            className="px-6 py-2 bg-slate-200 text-slate-800 font-bold rounded-lg hover:bg-slate-300 transition-colors disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                             >
                             Anterior
                             </button>
@@ -452,19 +636,65 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-200 font-sans p-4 sm:p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen text-slate-800 font-sans p-4 sm:p-6 md:p-8">
+      {isSaveModalOpen && (
+          <SaveProjectModal
+              onSave={handleSaveProjectRequest}
+              onClose={() => setIsSaveModalOpen(false)}
+              defaultName="Mi Nuevo Proyecto"
+          />
+      )}
+      {isProfileModalOpen && (
+          <UserProfileSetup
+              onSave={handleProfileSave}
+              onClose={() => {
+                  setIsProfileModalOpen(false);
+                  setProjectToSave(null);
+                  setProfileSetupIntent(null);
+              }}
+              existingProfile={userProfile}
+          />
+      )}
+      <div className="bg-white max-w-7xl mx-auto p-6 sm:p-8 md:p-12 rounded-2xl shadow-2xl">
         <header className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500 cursor-pointer" onClick={() => setView('welcome')}>
-            SHIP Framework Helper
+          <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 cursor-pointer" onClick={() => setView('welcome')}>
+            S.H.I.P. Helper
           </h1>
-          {view === 'new_project' && <p className="text-lg text-gray-400 mt-2">Usa la IA para refinar y estructurar tus ideas de producto.</p>}
+          {view === 'new_project' && <p className="text-lg text-slate-600 mt-2">Estructura, refina y planifica tus ideas con la ayuda de la IA.</p>}
         </header>
 
         <main>
           {renderContent()}
         </main>
       </div>
+
+      <div
+        aria-live="polite"
+        className={`fixed bottom-6 left-6 z-50 transition-all duration-500 transform ${
+            autoSaveStatus !== 'idle' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+        }`}
+        >
+        <div className="flex items-center gap-3 bg-slate-800/80 backdrop-blur-sm text-white text-sm rounded-lg px-4 py-2 shadow-lg border border-slate-600">
+            {autoSaveStatus === 'saving' && (
+            <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Guardando progreso...</span>
+            </>
+            )}
+            {autoSaveStatus === 'saved' && (
+            <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Progreso guardado automáticamente.</span>
+            </>
+            )}
+        </div>
+        </div>
+
       <VoiceControl
         onCommand={handleVoiceCommand}
         view={view}

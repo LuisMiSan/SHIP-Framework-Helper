@@ -1,6 +1,6 @@
 {
-  "name": "SHIP Framework Helper",
-  "description": "An AI-powered assistant to guide you through the SHIP (Solve, Hypothesize, Implement, Persevere) product development framework.",
+  "name": "S.H.I.P. Helper",
+  "description": "An AI-powered assistant to guide you through the S.H.I.P. (Solve, Hypothesize, Implement, Persevere) product development process.",
   "requestFramePermissions": [
     "microphone"
   ]
