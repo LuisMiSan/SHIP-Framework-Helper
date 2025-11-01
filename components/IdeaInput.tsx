@@ -1,122 +1,11 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+
+
+import React, { useState } from 'react';
 import { StepData } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import Tooltip from './Tooltip';
-
-interface SpeechRecognitionEvent extends Event {
-  readonly resultIndex: number;
-  readonly results: SpeechRecognitionResultList;
-}
-interface SpeechRecognitionErrorEvent extends Event {
-  readonly error: string;
-  readonly message: string;
-}
-interface SpeechRecognitionResult {
-  readonly isFinal: boolean;
-  readonly [index: number]: SpeechRecognitionAlternative;
-}
-interface SpeechRecognitionResultList {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-interface SpeechRecognitionAlternative {
-  readonly transcript: string;
-  readonly confidence: number;
-}
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start(): void;
-  stop(): void;
-  onstart: (() => void) | null;
-  onend: (() => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-}
-declare global {
-  interface Window {
-    SpeechRecognition: { new (): SpeechRecognition };
-    webkitSpeechRecognition: { new (): SpeechRecognition };
-  }
-}
-
-interface DictationButtonProps {
-    onDictate: (transcript: string) => void;
-    disabled: boolean;
-}
-
-const DictationButton: React.FC<DictationButtonProps> = ({ onDictate, disabled }) => {
-    const [isListening, setIsListening] = useState(false);
-    const [isSupported, setIsSupported] = useState(true);
-    const recognitionRef = useRef<SpeechRecognition | null>(null);
-
-    useEffect(() => {
-        const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognitionAPI) {
-            const recognition = new SpeechRecognitionAPI();
-            recognition.continuous = true;
-            recognition.lang = 'es-ES';
-            recognition.interimResults = false;
-
-            recognition.onstart = () => setIsListening(true);
-            recognition.onend = () => setIsListening(false);
-            recognition.onerror = (event) => console.error('Speech recognition error:', event.error);
-
-            recognition.onresult = (event) => {
-                let finalTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    }
-                }
-                if (finalTranscript) {
-                    onDictate(finalTranscript);
-                }
-            };
-            
-            recognitionRef.current = recognition;
-        } else {
-            setIsSupported(false);
-        }
-    }, [onDictate]);
-
-    const handleToggleListening = () => {
-        if (disabled || !recognitionRef.current) return;
-        if (isListening) {
-            recognitionRef.current.stop();
-        } else {
-            try {
-                recognitionRef.current.start();
-            } catch (e) {
-                console.error("Could not start speech recognition:", e);
-            }
-        }
-    };
-    
-    if (!isSupported) return null;
-
-    return (
-        <button
-            type="button"
-            onClick={handleToggleListening}
-            disabled={disabled}
-            className={`absolute bottom-3 right-3 p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                isListening
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-            } disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed`}
-            aria-label={isListening ? 'Detener dictado' : 'Iniciar dictado por voz'}
-            title={isListening ? 'Detener dictado' : 'Iniciar dictado por voz'}
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-        </button>
-    );
-};
+import DictationButton from './DictationButton';
 
 interface StepCardProps {
   stepData: StepData;
@@ -140,11 +29,22 @@ const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
 
 const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHelp, validationError, onRestoreAIResponse, onDictate }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isCurrentResponseCopied, setIsCurrentResponseCopied] = useState(false);
 
   const handleCopy = (textToCopy: string, index: number) => {
     navigator.clipboard.writeText(textToCopy).then(() => {
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000); // Reset after 2 seconds
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+    });
+  };
+
+  const handleCopyCurrentResponse = () => {
+    if (!stepData.aiResponse) return;
+    navigator.clipboard.writeText(stepData.aiResponse).then(() => {
+      setIsCurrentResponseCopied(true);
+      setTimeout(() => setIsCurrentResponseCopied(false), 2000); // Reset after 2 seconds
     }).catch(err => {
       console.error('Failed to copy text: ', err);
     });
@@ -186,7 +86,7 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
               aria-invalid={!!validationError}
               aria-describedby={validationError ? "user-input-error" : undefined}
             />
-            <DictationButton onDictate={onDictate} disabled={stepData.isLoading} />
+            <DictationButton onDictate={onDictate} disabled={stepData.isLoading} className="bottom-3 right-3" />
           </div>
            {validationError && (
             <div id="user-input-error" role="alert" className="mt-2 p-3 bg-red-50 border border-red-400 text-red-700 text-sm rounded-md flex items-start gap-2 animate-fade-in-up">
@@ -201,8 +101,37 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
           <label htmlFor="ai-response" className="block text-lg font-medium text-slate-700 mb-2">
             Sugerencias de la IA
           </label>
-          <div className="w-full p-4 bg-slate-50 border border-slate-200 rounded-md text-lg text-slate-700 h-64 overflow-y-auto whitespace-pre-wrap">
-            {stepData.isLoading && !stepData.aiResponse ? <LoadingSpinner /> : (stepData.aiResponse ? <MarkdownRenderer text={stepData.aiResponse} /> : 'Aquí aparecerá la ayuda de la IA...')}
+          <div className="relative">
+            <div className="w-full p-4 bg-slate-50 border border-slate-200 rounded-md text-lg text-slate-700 h-64 overflow-y-auto whitespace-pre-wrap">
+              {stepData.isLoading && !stepData.aiResponse ? <LoadingSpinner /> : (stepData.aiResponse ? <MarkdownRenderer text={stepData.aiResponse} /> : 'Aquí aparecerá la ayuda de la IA...')}
+            </div>
+            {stepData.aiResponse && !stepData.isLoading && (
+              <button
+                onClick={handleCopyCurrentResponse}
+                className={`absolute top-3 right-3 flex items-center gap-1.5 text-xs font-semibold py-1.5 px-3 rounded-md transition-all duration-200 ${
+                  isCurrentResponseCopied
+                    ? 'bg-green-600 text-white'
+                    : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                }`}
+                aria-label="Copiar sugerencia"
+              >
+                {isCurrentResponseCopied ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Copiado</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span>Copiar</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
-import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus } from './types';
+import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus, AISettings } from './types';
 import ProgressBar from './components/ProgressBar';
 import StepCard from './components/IdeaInput';
 import SummaryDisplay from './components/ArchitectureDisplay';
@@ -10,6 +10,7 @@ import ArchiveView from './components/ArchiveView';
 import VoiceControl from './components/VoiceControl';
 import UserProfileSetup from './components/UserProfileSetup';
 import SaveProjectModal from './components/SaveProjectModal';
+import SettingsModal from './components/SettingsModal';
 
 const initialStepsData: StepData[] = [
   {
@@ -143,14 +144,15 @@ const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [projectToSave, setProjectToSave] = useState<{ name: string } | null>(null);
-  const [profileSetupIntent, setProfileSetupIntent] = useState<'start_new' | null>(null);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [profileSetupIntent, setProfileSetupIntent] = useState<'start_new' | 'save_project' | null>(null);
 
 
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [apiKeyStatus, setApiKeyStatus] = useState<'valid' | 'missing' | 'invalid'>('valid');
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [aiSettings, setAiSettings] = useState<AISettings>({ temperature: 0.7, model: 'gemini-2.5-flash' });
   const latestStateRef = useRef({ stepsData, currentStep });
 
   // Keep the ref updated with the latest state for the auto-save interval
@@ -197,6 +199,24 @@ const App: React.FC = () => {
     }
 
     try {
+        const savedSettings = localStorage.getItem('ship-framework-settings');
+        if (savedSettings) {
+          try {
+            const parsedSettings = JSON.parse(savedSettings);
+            if (
+                typeof parsedSettings.temperature === 'number' &&
+                (parsedSettings.model === 'gemini-2.5-flash' || parsedSettings.model === 'gemini-2.5-pro')
+            ) {
+                setAiSettings(parsedSettings);
+            } else if (typeof parsedSettings.temperature === 'number') {
+                // Handle old settings format without model by adding the default
+                setAiSettings({ temperature: parsedSettings.temperature, model: 'gemini-2.5-flash' });
+            }
+          } catch(e) {
+            console.error("Failed to parse AI settings.", e);
+          }
+        }
+
         const savedProfile = localStorage.getItem('ship-framework-user-profile');
         if(savedProfile) {
           setUserProfile(JSON.parse(savedProfile));
@@ -317,8 +337,11 @@ const App: React.FC = () => {
       const prompt = getAIPrompt(currentStepData.id, context, previousResponse);
       
       const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-2.5-flash',
+        model: aiSettings.model,
         contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          temperature: aiSettings.temperature,
+        },
       });
 
       for await (const chunk of responseStream) {
@@ -405,17 +428,22 @@ const App: React.FC = () => {
   };
 
   const handleSaveRequest = () => {
-    setIsSaveModalOpen(true);
+    if (!userProfile) {
+      setProfileSetupIntent('save_project');
+      setIsProfileModalOpen(true);
+    } else {
+      setIsSaveModalOpen(true);
+    }
   };
 
   const handleSaveProjectRequest = (projectName: string) => {
-    if (!projectName) return;
+    if (!projectName.trim()) return;
     setIsSaveModalOpen(false);
-    setProjectToSave({ name: projectName });
-    if (!userProfile) {
-      setIsProfileModalOpen(true);
-    } else {
+    if (userProfile) {
       saveProject(projectName, userProfile);
+    } else {
+      console.error("Attempted to save project without a user profile.");
+      setError("No se pudo guardar el proyecto porque falta el perfil de usuario.");
     }
   };
 
@@ -438,7 +466,6 @@ const App: React.FC = () => {
       }
       
       setIsProjectSaved(true);
-      setProjectToSave(null);
       setIsProfileModalOpen(false);
       
       setTimeout(() => {
@@ -454,15 +481,25 @@ const App: React.FC = () => {
         console.error("Failed to save user profile to localStorage", error);
     }
 
+    setIsProfileModalOpen(false);
+
     if (profileSetupIntent === 'start_new') {
       setProfileSetupIntent(null);
-      setIsProfileModalOpen(false);
       startNewProjectFlow();
-    } else if (projectToSave) {
-        saveProject(projectToSave.name, profile);
-    } else {
-        setIsProfileModalOpen(false);
+    } else if (profileSetupIntent === 'save_project') {
+        setProfileSetupIntent(null);
+        setIsSaveModalOpen(true);
     }
+  };
+
+  const handleSaveSettings = (newSettings: AISettings) => {
+    setAiSettings(newSettings);
+    try {
+        localStorage.setItem('ship-framework-settings', JSON.stringify(newSettings));
+    } catch (error) {
+        console.error("Failed to save AI settings to localStorage", error);
+    }
+    setIsSettingsModalOpen(false);
   };
 
 
@@ -649,18 +686,39 @@ const App: React.FC = () => {
               onSave={handleProfileSave}
               onClose={() => {
                   setIsProfileModalOpen(false);
-                  setProjectToSave(null);
                   setProfileSetupIntent(null);
               }}
               existingProfile={userProfile}
           />
       )}
+      {isSettingsModalOpen && (
+        <SettingsModal
+          currentSettings={aiSettings}
+          onSave={handleSaveSettings}
+          onClose={() => setIsSettingsModalOpen(false)}
+        />
+      )}
       <div className="bg-white max-w-7xl mx-auto p-6 sm:p-8 md:p-12 rounded-2xl shadow-2xl">
-        <header className="text-center mb-8">
+        <header className="relative text-center mb-8">
           <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 cursor-pointer" onClick={() => setView('welcome')}>
             S.H.I.P. Helper
           </h1>
-          {view === 'new_project' && <p className="text-lg text-slate-600 mt-2">Estructura, refina y planifica tus ideas con la ayuda de la IA.</p>}
+          {view === 'new_project' && (
+            <>
+            <p className="text-lg text-slate-600 mt-2">Estructura, refina y planifica tus ideas con la ayuda de la IA.</p>
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="absolute top-0 right-0 p-2 text-slate-500 hover:text-indigo-600 transition-colors"
+              aria-label="Configuración de IA"
+              title="Configuración de IA"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            </>
+          )}
         </header>
 
         <main>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
+import DictationButton from './DictationButton';
 
 interface UserProfileSetupProps {
     onSave: (profile: UserProfile) => void;
@@ -23,6 +24,12 @@ const UserProfileSetup: React.FC<UserProfileSetupProps> = ({ onSave, onClose, ex
                 return newErrors;
             });
         }
+    };
+
+    const handleDictation = (fieldName: keyof UserProfile, text: string) => {
+        const currentVal = profile[fieldName] || '';
+        const separator = currentVal.trim() ? ' ' : '';
+        setProfile(prev => ({ ...prev, [fieldName]: currentVal + separator + text }));
     };
 
     const validate = () => {
@@ -59,20 +66,32 @@ const UserProfileSetup: React.FC<UserProfileSetupProps> = ({ onSave, onClose, ex
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label htmlFor="name" className="block text-sm font-medium text-slate-700">Nombre Completo <span className="text-red-500">*</span></label>
-                        <input type="text" name="name" id="name" value={profile.name} onChange={handleChange} className={`mt-1 block w-full px-3 py-2 bg-white border ${errors.name ? 'border-red-500' : 'border-slate-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`} />
+                        <div className="relative mt-1">
+                            <input type="text" name="name" id="name" value={profile.name} onChange={handleChange} className={`block w-full px-3 py-2 pr-12 bg-white border ${errors.name ? 'border-red-500' : 'border-slate-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`} />
+                            <DictationButton onDictate={(text) => handleDictation('name', text)} className="top-1/2 -translate-y-1/2 right-2" />
+                        </div>
                         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                     </div>
                     <div>
                         <label htmlFor="company" className="block text-sm font-medium text-slate-700">Empresa (Opcional)</label>
-                        <input type="text" name="company" id="company" value={profile.company} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <div className="relative mt-1">
+                            <input type="text" name="company" id="company" value={profile.company} onChange={handleChange} className="block w-full px-3 py-2 pr-12 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                            <DictationButton onDictate={(text) => handleDictation('company', text)} className="top-1/2 -translate-y-1/2 right-2" />
+                        </div>
                     </div>
                     <div>
                         <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email (Opcional)</label>
-                        <input type="email" name="email" id="email" value={profile.email} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <div className="relative mt-1">
+                            <input type="email" name="email" id="email" value={profile.email} onChange={handleChange} className="block w-full px-3 py-2 pr-12 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                             <DictationButton onDictate={(text) => handleDictation('email', text)} className="top-1/2 -translate-y-1/2 right-2" />
+                        </div>
                     </div>
                     <div>
                         <label htmlFor="phone" className="block text-sm font-medium text-slate-700">Teléfono (Opcional)</label>
-                        <input type="tel" name="phone" id="phone" value={profile.phone} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <div className="relative mt-1">
+                            <input type="tel" name="phone" id="phone" value={profile.phone} onChange={handleChange} className="block w-full px-3 py-2 pr-12 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                            <DictationButton onDictate={(text) => handleDictation('phone', text)} className="top-1/2 -translate-y-1/2 right-2" />
+                        </div>
                     </div>
 
                     <div className="!mt-6 bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">

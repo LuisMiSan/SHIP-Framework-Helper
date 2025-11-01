@@ -29,6 +29,13 @@ export interface ArchivedProject {
   status: ProjectStatus;
 }
 
+export type AvailableModel = 'gemini-2.5-flash' | 'gemini-2.5-pro';
+
+export interface AISettings {
+  temperature: number;
+  model: AvailableModel;
+}
+
 export type VoiceCommand =
   | 'NEXT_STEP'
   | 'PREV_STEP'
