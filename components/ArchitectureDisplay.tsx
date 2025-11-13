@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { ArchivedProject, ProjectStatus } from '../types';
+import { ArchivedProject, ProjectStatus, StepData } from '../types';
 import StatusBadge from './StatusBadge';
 
 interface SummaryDisplayProps {
@@ -12,6 +12,7 @@ interface SummaryDisplayProps {
   isSaved: boolean;
   onBackToArchive?: () => void;
   onUpdateProjectStatus: (projectId: string, status: ProjectStatus) => void;
+  onSaveAsTemplate: (data: StepData[]) => void;
 }
 
 const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
@@ -25,7 +26,7 @@ const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
   return <>{elements}</>;
 };
 
-const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onSaveProject, isArchived, isSaved, onBackToArchive, onUpdateProjectStatus }) => {
+const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onSaveProject, isArchived, isSaved, onBackToArchive, onUpdateProjectStatus, onSaveAsTemplate }) => {
   const summaryContentRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
@@ -88,7 +89,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
             {isArchived && <div className="mt-2"><StatusBadge status={project.status} /></div>}
         </div>
         
-        {isArchived && hasProfileData && (
+        {hasProfileData && (
           <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
               <h3 className="text-xl font-bold text-slate-700 mb-4">Información del Cliente</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-slate-600">
@@ -123,7 +124,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
         {isArchived ? (
             <>
               <button onClick={onBackToArchive} className="w-full sm:w-auto px-6 py-3 bg-slate-200 text-slate-800 font-bold rounded-lg text-lg hover:bg-slate-300 transition-all transform hover:scale-105">
-                &larr; Volver al Archivo
+                &larr; Volver a la Base de Datos
               </button>
               <div className="flex gap-2">
                 <button onClick={() => onUpdateProjectStatus(project.id, 'success')} className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white font-bold rounded-lg text-lg hover:bg-green-700 transition-all transform hover:scale-105">
@@ -170,6 +171,15 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
           ) : (
             <span>Descargar como PDF</span>
           )}
+        </button>
+        <button
+          onClick={() => onSaveAsTemplate(project.data)}
+          className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-slate-600 text-white font-bold rounded-lg text-lg hover:bg-slate-700 transition-all transform hover:scale-105"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span>Guardar como Plantilla</span>
         </button>
       </div>
     </div>

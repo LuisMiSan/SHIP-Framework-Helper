@@ -1,77 +1,19 @@
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
-import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus, AISettings } from './types';
-import ProgressBar from './components/ProgressBar';
+import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus, AISettings, ProjectTemplate, InProgressProject, View } from './types';
+import { initialStepsData } from './data/initialData';
+import { preloadedTemplates } from './data/templates';
 import StepCard from './components/IdeaInput';
 import SummaryDisplay from './components/ArchitectureDisplay';
 import ApiKeySetup from './components/ApiKeySetup';
 import WelcomeScreen from './components/WelcomeScreen';
-import ArchiveView from './components/ArchiveView';
+import DatabaseView from './components/DatabaseView';
 import VoiceControl from './components/VoiceControl';
-import UserProfileSetup from './components/UserProfileSetup';
-import SaveProjectModal from './components/SaveProjectModal';
+import ProjectInfoForm from './components/ProjectInfoForm';
 import SettingsModal from './components/SettingsModal';
-
-const initialStepsData: StepData[] = [
-  {
-    id: 'solve',
-    title: 'Paso 1: Definir el Problema',
-    description: [
-      'Describe claramente el problema que quieres resolver. ¿Para quién es? ¿Por qué es importante? Intenta llegar a la ',
-      { word: 'causa raíz', tip: 'El problema fundamental que, si se resolviera, eliminaría muchos problemas superficiales.' },
-      '.'
-    ],
-    placeholder: 'Ej: Los cocineros aficionados tienen dificultades para encontrar recetas saludables y fáciles que se ajusten a sus restricciones dietéticas...',
-    userInput: '',
-    aiResponse: '',
-    isLoading: false,
-    aiResponseHistory: [],
-  },
-  {
-    id: 'hypothesize',
-    title: 'Paso 2: Formular una Hipótesis',
-    description: [
-      'Propón una solución. ¿Cuál es tu ',
-      { word: 'hipótesis', tip: 'Una suposición comprobable sobre cómo tu solución resolverá el problema para tus usuarios.' },
-      ' sobre cómo resolver el problema y cómo medirás el éxito?'
-    ],
-    placeholder: 'Ej: Creemos que una app móvil con filtros de recetas por dieta, alergias y tiempo de preparación ayudará a los cocineros a encontrar comidas adecuadas rápidamente. El éxito se medirá por el número de recetas guardadas...',
-    userInput: '',
-    aiResponse: '',
-    isLoading: false,
-    aiResponseHistory: [],
-  },
-  {
-    id: 'implement',
-    title: 'Paso 3: Planificar la Implementación (MVP)',
-    description: [
-      'Define el ',
-      { word: 'Producto Mínimo Viable (MVP)', tip: 'La versión más simple de un producto que se puede lanzar para probar la hipótesis principal con el menor esfuerzo.' },
-      '. ¿Cuáles son las características esenciales para probar tu hipótesis?'
-    ],
-    placeholder: 'Ej: 1. Buscador de recetas con filtros. 2. Página de detalles de la receta. 3. Opción para guardar recetas favoritas...',
-    userInput: '',
-    aiResponse: '',
-    isLoading: false,
-    aiResponseHistory: [],
-  },
-  {
-    id: 'persevere',
-    title: 'Paso 4: Perseverar o Pivotar',
-    description: [
-      'Imagina que has lanzado tu MVP. Describe los resultados (reales o imaginarios) y reflexiona sobre los siguientes pasos. ¿Debes ',
-      { word: 'Perseverar', tip: 'Continuar con la misma estrategia porque los resultados son prometedores.' },
-      ' o ',
-      { word: 'Pivotar', tip: 'Hacer un cambio fundamental en tu estrategia basado en lo que has aprendido.' },
-      '?'
-    ],
-    placeholder: 'Ej: Después del lanzamiento, notamos que muchos usuarios guardan recetas pero pocos las cocinan. Los comentarios indican que los ingredientes son difíciles de encontrar...',
-    userInput: '',
-    aiResponse: '',
-    isLoading: false,
-    aiResponseHistory: [],
-  },
-];
+import SaveTemplateModal from './components/SaveTemplateModal';
 
 const getAIPrompt = (stepId: string, context: Record<string, string>, previousResponse: string): string => {
   const iterationPreamble = `Actúa como un coach de producto que está ayudando a un usuario a iterar. Tu sugerencia anterior fue: "${previousResponse}". El usuario ha actualizado su entrada. Proporciona un nuevo conjunto de sugerencias basadas en su entrada actualizada, reconociendo las mejoras o cambios si es posible. Aquí está la tarea original y la nueva entrada del usuario:\n\n---\n\n`;
@@ -122,54 +64,48 @@ const validateInput = (stepId: string, userInput: string): { isValid: boolean; m
       message: 'Tu descripción es muy corta. Intenta detallar más tu idea para obtener mejores sugerencias (mínimo 50 caracteres).',
     };
   }
-
-  // Se han eliminado todas las validaciones de palabras clave para fomentar un enfoque más empático y flexible.
-  // Confiamos en que la IA guíe al usuario para refinar sus ideas, en lugar de imponer reglas estrictas sobre cómo deben expresarlas.
-  // El único requisito es una longitud mínima para asegurar que la IA tenga suficiente contexto para proporcionar ayuda de calidad.
-
   return { isValid: true, message: '' };
 };
-
-type View = 'welcome' | 'new_project' | 'archive' | 'view_archived';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('welcome');
   const [archive, setArchive] = useState<ArchivedProject[]>([]);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [selectedArchivedProject, setSelectedArchivedProject] = useState<ArchivedProject | null>(null);
 
-  const [currentStep, setCurrentStep] = useState<number>(0);
   const [stepsData, setStepsData] = useState<StepData[]>(initialStepsData);
+  const [projectName, setProjectName] = useState<string>('');
+  const [currentProjectProfile, setCurrentProjectProfile] = useState<UserProfile>({ name: '', company: '', email: '', phone: '' });
+
+  const [showSummary, setShowSummary] = useState(false);
   const [isProjectSaved, setIsProjectSaved] = useState(false);
   
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
+  const [projectToTemplate, setProjectToTemplate] = useState<StepData[] | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [profileSetupIntent, setProfileSetupIntent] = useState<'start_new' | 'save_project' | null>(null);
-
 
   const [error, setError] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [apiKeyStatus, setApiKeyStatus] = useState<'valid' | 'missing' | 'invalid'>('valid');
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [aiSettings, setAiSettings] = useState<AISettings>({ temperature: 0.7, model: 'gemini-2.5-flash' });
-  const latestStateRef = useRef({ stepsData, currentStep });
+  const latestStateRef = useRef({ stepsData, projectName, currentProjectProfile });
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const lastScrolledStepIndex = useRef<number>(0);
 
-  // Keep the ref updated with the latest state for the auto-save interval
   useEffect(() => {
-    latestStateRef.current = { stepsData, currentStep };
-  }, [stepsData, currentStep]);
+    latestStateRef.current = { stepsData, projectName, currentProjectProfile };
+  }, [stepsData, projectName, currentProjectProfile]);
   
-  // Auto-save progress
   useEffect(() => {
     if (view !== 'new_project') {
       return;
     }
   
     const intervalId = setInterval(() => {
-      const { stepsData: latestStepsData, currentStep: latestCurrentStep } = latestStateRef.current;
-      // Don't save if the project is pristine and empty
-      const isPristine = latestStepsData.every(step => step.userInput.trim() === '' && step.aiResponse.trim() === '');
+      const { stepsData: latestStepsData, projectName: latestProjectName, currentProjectProfile: latestProfile } = latestStateRef.current;
+      const isPristine = latestStepsData.every(step => step.userInput.trim() === '' && step.aiResponse.trim() === '') && latestProjectName.trim() === '' && latestProfile.name.trim() === '';
+
       if (isPristine) {
         return;
       }
@@ -177,22 +113,25 @@ const App: React.FC = () => {
       setAutoSaveStatus('saving');
       
       try {
-        localStorage.setItem('ship-framework-data', JSON.stringify(latestStepsData));
-        localStorage.setItem('ship-framework-step', JSON.stringify(latestCurrentStep));
+        const inProgressData: InProgressProject = {
+          projectName: latestProjectName,
+          userProfile: latestProfile,
+          stepsData: latestStepsData,
+        };
+        localStorage.setItem('ship-framework-data', JSON.stringify(inProgressData));
         
         setTimeout(() => setAutoSaveStatus('saved'), 500);
-        setTimeout(() => setAutoSaveStatus('idle'), 3000); // Hide notification after 3 seconds
+        setTimeout(() => setAutoSaveStatus('idle'), 3000);
   
       } catch (error) {
         console.error("Failed to auto-save progress to localStorage", error);
-        setAutoSaveStatus('idle'); // Reset on error
+        setAutoSaveStatus('idle');
       }
-    }, 90000); // Auto-save every 90 seconds (1.5 minutes)
+    }, 90000);
   
     return () => clearInterval(intervalId);
   }, [view]);
 
-  // API Key Check & Initial data loading
   useEffect(() => {
     if (!process.env.API_KEY) {
       setApiKeyStatus('missing');
@@ -209,17 +148,11 @@ const App: React.FC = () => {
             ) {
                 setAiSettings(parsedSettings);
             } else if (typeof parsedSettings.temperature === 'number') {
-                // Handle old settings format without model by adding the default
                 setAiSettings({ temperature: parsedSettings.temperature, model: 'gemini-2.5-flash' });
             }
           } catch(e) {
             console.error("Failed to parse AI settings.", e);
           }
-        }
-
-        const savedProfile = localStorage.getItem('ship-framework-user-profile');
-        if(savedProfile) {
-          setUserProfile(JSON.parse(savedProfile));
         }
 
         const savedArchive = localStorage.getItem('ship-framework-archive');
@@ -231,20 +164,33 @@ const App: React.FC = () => {
             localStorage.removeItem('ship-framework-archive');
           }
         }
+        
+        const savedTemplates = localStorage.getItem('ship-framework-templates');
+        if (savedTemplates) {
+            try {
+                setTemplates(JSON.parse(savedTemplates));
+            } catch(e) {
+                console.error("Failed to parse templates, loading defaults.", e);
+                localStorage.removeItem('ship-framework-templates');
+                setTemplates(preloadedTemplates);
+            }
+        } else {
+            setTemplates(preloadedTemplates);
+        }
 
         const savedData = localStorage.getItem('ship-framework-data');
-        const savedStep = localStorage.getItem('ship-framework-step');
-        if(savedData && savedStep) {
-            const parsedData = JSON.parse(savedData);
-            const parsedStep = JSON.parse(savedStep);
-            if (Array.isArray(parsedData) && parsedData.length === initialStepsData.length && typeof parsedStep === 'number') {
-                setStepsData(parsedData.map((step: Partial<StepData>) => ({
+        if(savedData) {
+            const parsedData: InProgressProject = JSON.parse(savedData);
+            if (parsedData && parsedData.stepsData && Array.isArray(parsedData.stepsData) && parsedData.stepsData.length === initialStepsData.length) {
+                setStepsData(parsedData.stepsData.map((step: Partial<StepData>) => ({
                     ...initialStepsData.find(s => s.id === step.id)!,
                     ...step,
                     aiResponseHistory: step.aiResponseHistory || [],
                 })));
-                setCurrentStep(parsedStep);
-                setIsProjectSaved(false); // A resumed project is not saved yet
+                setProjectName(parsedData.projectName || '');
+                setCurrentProjectProfile(parsedData.userProfile || { name: '', company: '', email: '', phone: '' });
+                setIsProjectSaved(false);
+                setShowSummary(false);
                 setView('new_project');
                 return;
             }
@@ -271,29 +217,46 @@ const App: React.FC = () => {
       console.error("Failed to save archive to localStorage", error);
     }
   };
+  
+  const updateAndSaveTemplates = (newTemplates: ProjectTemplate[]) => {
+    setTemplates(newTemplates);
+    try {
+      if (newTemplates.length > 0) {
+        localStorage.setItem('ship-framework-templates', JSON.stringify(newTemplates));
+      } else {
+        localStorage.removeItem('ship-framework-templates');
+      }
+    } catch (error) {
+      console.error("Failed to save templates to localStorage", error);
+    }
+  };
 
-  const handleInputChange = (value: string) => {
-    setValidationError(null);
+  const handleInputChange = (index: number, value: string) => {
+    setValidationErrors({});
     const newStepsData = [...stepsData];
-    newStepsData[currentStep].userInput = value;
+    newStepsData[index].userInput = value;
     setStepsData(newStepsData);
   };
 
-  const handleDictation = (text: string) => {
-    const currentInput = stepsData[currentStep].userInput;
+  const handleDictation = (index: number, text: string) => {
+    const currentInput = stepsData[index].userInput;
     const separator = currentInput.trim() && text ? ' ' : '';
-    handleInputChange(currentInput + separator + text);
+    const newValue = currentInput + separator + text;
+    
+    const newStepsData = [...stepsData];
+    newStepsData[index].userInput = newValue;
+    setStepsData(newStepsData);
   };
 
-  const handleGetAIHelp = async () => {
-    const currentStepData = stepsData[currentStep];
+  const handleGetAIHelp = async (index: number) => {
+    const currentStepData = stepsData[index];
 
     const validation = validateInput(currentStepData.id, currentStepData.userInput);
     if (!validation.isValid) {
-        setValidationError(validation.message);
+        setValidationErrors({ ...validationErrors, [currentStepData.id]: validation.message });
         return;
     }
-    setValidationError(null);
+    setValidationErrors({ ...validationErrors, [currentStepData.id]: '' });
     
     if (!currentStepData.userInput.trim()) return;
 
@@ -303,7 +266,7 @@ const App: React.FC = () => {
 
     setStepsData(prevData => {
         const newData = [...prevData];
-        const stepToUpdate = newData[currentStep];
+        const stepToUpdate = newData[index];
         
         stepToUpdate.isLoading = true;
         stepToUpdate.aiResponse = '';
@@ -347,7 +310,7 @@ const App: React.FC = () => {
       for await (const chunk of responseStream) {
         setStepsData(prevData => {
             const newData = [...prevData];
-            newData[currentStep].aiResponse += chunk.text;
+            newData[index].aiResponse += chunk.text;
             return newData;
         });
       }
@@ -375,121 +338,86 @@ const App: React.FC = () => {
     } finally {
         setStepsData(prevData => {
             const newData = [...prevData];
-            newData[currentStep].isLoading = false;
+            newData[index].isLoading = false;
             return newData;
         });
     }
   };
 
-  const goToNextStep = () => {
-    if (currentStep < stepsData.length) {
-        const currentStepData = stepsData[currentStep];
-        const validation = validateInput(currentStepData.id, currentStepData.userInput);
-        if (!validation.isValid) {
-            setValidationError(validation.message);
-            return;
-        }
-    }
-    setValidationError(null);
+  const handleShowSummary = () => {
+    const newErrors: Record<string, string> = {};
+    let allValid = true;
 
-    if (currentStep < stepsData.length) {
-      setCurrentStep(currentStep + 1);
+    if (!projectName.trim()) {
+      newErrors['projectName'] = 'El nombre del proyecto es obligatorio.';
+      allValid = false;
     }
-  };
+    if (!currentProjectProfile.name.trim()) {
+      newErrors['userName'] = 'El nombre del cliente es obligatorio.';
+      allValid = false;
+    }
 
-  const goToPrevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+    stepsData.forEach(step => {
+      const validation = validateInput(step.id, step.userInput);
+      if (!validation.isValid) {
+        newErrors[step.id] = validation.message;
+        allValid = false;
+      }
+    });
+
+    setValidationErrors(newErrors);
+    
+    if (allValid) {
+      setShowSummary(true);
+      setError(null);
+      window.scrollTo(0, 0);
+    } else {
+      setError("Por favor, completa todos los campos obligatorios antes de ver el resumen.");
     }
   };
 
   const startNewProjectFlow = () => {
     try {
       localStorage.removeItem('ship-framework-data');
-      localStorage.removeItem('ship-framework-step');
     } catch (error) {
       console.error("Failed to clear localStorage", error);
     }
     setStepsData(initialStepsData);
-    setCurrentStep(0);
+    setProjectName('');
+    setCurrentProjectProfile({ name: '', company: '', email: '', phone: '' });
     setError(null);
-    setValidationError(null);
+    setValidationErrors({});
     setIsProjectSaved(false);
+    setShowSummary(false);
     setView('new_project');
   };
 
-  const handleRestart = () => {
-    if (!userProfile) {
-      setProfileSetupIntent('start_new');
-      setIsProfileModalOpen(true);
-    } else {
-      startNewProjectFlow();
-    }
-  };
-
-  const handleSaveRequest = () => {
-    if (!userProfile) {
-      setProfileSetupIntent('save_project');
-      setIsProfileModalOpen(true);
-    } else {
-      setIsSaveModalOpen(true);
-    }
-  };
-
-  const handleSaveProjectRequest = (projectName: string) => {
-    if (!projectName.trim()) return;
-    setIsSaveModalOpen(false);
-    if (userProfile) {
-      saveProject(projectName, userProfile);
-    } else {
-      console.error("Attempted to save project without a user profile.");
-      setError("No se pudo guardar el proyecto porque falta el perfil de usuario.");
-    }
-  };
-
-  const saveProject = (projectName: string, profile: UserProfile) => {
+  const handleSaveProject = () => {
       const newArchivedProject: ArchivedProject = {
           id: new Date().toISOString(),
           name: projectName,
           savedAt: new Date().toISOString(),
           data: stepsData,
-          userProfile: profile,
+          userProfile: currentProjectProfile,
           status: 'pending'
       };
       updateAndSaveArchive([newArchivedProject, ...archive]);
       
       try {
         localStorage.removeItem('ship-framework-data');
-        localStorage.removeItem('ship-framework-step');
       } catch (error) {
         console.error("Failed to clear in-progress session from localStorage", error);
       }
       
       setIsProjectSaved(true);
-      setIsProfileModalOpen(false);
       
       setTimeout(() => {
         setView('welcome');
-      }, 500); // Brief delay to show "Saved" status before navigating
-  };
-
-  const handleProfileSave = (profile: UserProfile) => {
-    setUserProfile(profile);
-    try {
-        localStorage.setItem('ship-framework-user-profile', JSON.stringify(profile));
-    } catch (error) {
-        console.error("Failed to save user profile to localStorage", error);
-    }
-
-    setIsProfileModalOpen(false);
-
-    if (profileSetupIntent === 'start_new') {
-      setProfileSetupIntent(null);
-      startNewProjectFlow();
-    } else if (profileSetupIntent === 'save_project') {
-        setProfileSetupIntent(null);
-        setIsSaveModalOpen(true);
-    }
+        setProjectName('');
+        setCurrentProjectProfile({ name: '', company: '', email: '', phone: '' });
+        setStepsData(initialStepsData);
+        setShowSummary(false);
+      }, 500);
   };
 
   const handleSaveSettings = (newSettings: AISettings) => {
@@ -516,68 +444,133 @@ const App: React.FC = () => {
     setView('view_archived');
   };
 
-  const handleRestoreAIResponse = (responseToRestore: string) => {
+  const handleRestoreAIResponse = (index: number, responseToRestore: string) => {
     setStepsData(prevData => {
-        const newData = [...prevData];
-        const stepToUpdate = newData[currentStep];
+      const newData = [...prevData];
+      const stepToUpdate = newData[index];
+      const oldResponse = stepToUpdate.aiResponse;
 
-        const currentResponse = stepToUpdate.aiResponse;
-        const oldHistory = stepToUpdate.aiResponseHistory;
+      stepToUpdate.aiResponse = responseToRestore;
 
-        let newHistory = oldHistory.filter(item => item !== responseToRestore);
-
-        if (currentResponse.trim()) {
-            newHistory.unshift(currentResponse);
-        }
-
-        newHistory.unshift(responseToRestore);
-
-        stepToUpdate.aiResponse = responseToRestore;
-        stepToUpdate.aiResponseHistory = newHistory;
-
-        return newData;
+      if (oldResponse && oldResponse !== responseToRestore) {
+          stepToUpdate.aiResponseHistory = [
+              oldResponse,
+              ...stepToUpdate.aiResponseHistory.filter(h => h !== responseToRestore)
+          ];
+      } else {
+          stepToUpdate.aiResponseHistory = stepToUpdate.aiResponseHistory.filter(h => h !== responseToRestore);
+      }
+      
+      return newData;
     });
   };
 
+  const handleSaveAsTemplate = (data: StepData[]) => {
+    setProjectToTemplate(data);
+    setIsSaveTemplateModalOpen(true);
+  };
+  
+  const handleConfirmSaveTemplate = (templateName: string) => {
+    if (!projectToTemplate) return;
+    const newTemplate: ProjectTemplate = {
+      id: new Date().toISOString(),
+      name: templateName,
+      createdAt: new Date().toISOString(),
+      data: projectToTemplate,
+    };
+    updateAndSaveTemplates([newTemplate, ...templates]);
+    setIsSaveTemplateModalOpen(false);
+    setProjectToTemplate(null);
+  };
+
+  const handleStartFromTemplate = (template: ProjectTemplate) => {
+    setStepsData(template.data.map((step: Partial<StepData>) => ({
+        ...initialStepsData.find(s => s.id === step.id)!,
+        userInput: step.userInput || '',
+        aiResponse: '',
+        isLoading: false,
+        aiResponseHistory: [],
+    })));
+    setProjectName('');
+    setCurrentProjectProfile({ name: '', company: '', email: '', phone: '' });
+    setError(null);
+    setValidationErrors({});
+    setIsProjectSaved(false);
+    setShowSummary(false);
+    setView('new_project');
+  };
+
+  const handleDeleteTemplate = (templateId: string) => {
+    updateAndSaveTemplates(templates.filter(t => t.id !== templateId));
+  };
+  
   const handleVoiceCommand = (command: VoiceCommand, value?: string) => {
-    switch(command) {
-        case 'NEXT_STEP':
-            if (view === 'new_project' && currentStep < stepsData.length) goToNextStep();
-            break;
-        case 'PREV_STEP':
-            if (view === 'new_project' && currentStep > 0) goToPrevStep();
-            break;
-        case 'GET_AI_HELP':
-            if (view === 'new_project' && currentStep < stepsData.length) handleGetAIHelp();
-            break;
-        case 'DICTATE':
-            if (view === 'new_project' && currentStep < stepsData.length && value) {
-                const currentInput = stepsData[currentStep].userInput;
-                const separator = currentInput.trim() ? ' ' : '';
-                handleInputChange(currentInput + separator + value);
+    const scrollToStep = (index: number) => {
+        const stepElement = stepRefs.current[index];
+        if (stepElement) {
+            stepElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            lastScrolledStepIndex.current = index;
+        }
+    };
+    
+    switch (command) {
+        case 'NEXT_STEP': {
+            if (view === 'new_project' && !showSummary) {
+                const newIndex = Math.min(lastScrolledStepIndex.current + 1, stepsData.length - 1);
+                scrollToStep(newIndex);
             }
             break;
+        }
+        case 'PREV_STEP': {
+            if (view === 'new_project' && !showSummary) {
+                const newIndex = Math.max(lastScrolledStepIndex.current - 1, 0);
+                scrollToStep(newIndex);
+            }
+            break;
+        }
+        case 'GET_AI_HELP': {
+             if (view === 'new_project' && !showSummary) {
+                const stepNumber = value ? parseInt(value, 10) : -1;
+                let targetIndex;
+                if (stepNumber > 0 && stepNumber <= stepsData.length) {
+                    targetIndex = stepNumber - 1;
+                } else {
+                    targetIndex = lastScrolledStepIndex.current;
+                }
+                scrollToStep(targetIndex);
+                setTimeout(() => handleGetAIHelp(targetIndex), 500);
+            }
+            break;
+        }
+        case 'DICTATE': {
+            if (value && view === 'new_project' && !showSummary) {
+                handleDictation(lastScrolledStepIndex.current, value);
+            }
+            break;
+        }
         case 'START_NEW':
-            if (view === 'welcome') {
-                handleRestart();
-            }
+            if (view === 'welcome') startNewProjectFlow();
             break;
-        case 'VIEW_ARCHIVE':
-             // This command is now obsolete as archive is part of welcome view
+        case 'VIEW_DATABASE':
+            setView('database');
             break;
         case 'GO_BACK':
-            if (view === 'view_archived') setView('welcome');
+            if (showSummary) {
+                setShowSummary(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else if (view === 'view_archived' || view === 'database') {
+                setView('welcome');
+            }
             break;
         case 'SAVE_PROJECT':
-            if (view === 'new_project' && currentStep === stepsData.length && !isProjectSaved) {
-                handleSaveRequest();
-            }
+            if (showSummary) handleSaveProject();
             break;
         case 'DOWNLOAD_PDF':
-             if ((view === 'new_project' && currentStep === stepsData.length) || view === 'view_archived') {
-                const downloadButton = document.getElementById('download-pdf-button');
-                downloadButton?.click();
+            if(showSummary || view === 'view_archived') {
+                 document.getElementById('download-pdf-button')?.click();
             }
+            break;
+        default:
             break;
     }
   };
@@ -585,182 +578,150 @@ const App: React.FC = () => {
   if (apiKeyStatus !== 'valid') {
     return <ApiKeySetup reason={apiKeyStatus} />;
   }
+
+  const allStepsComplete = stepsData.every(step => step.userInput.trim().length > 0);
+  const isSaveable = projectName.trim().length > 0 && currentProjectProfile.name.trim().length > 0 && allStepsComplete;
   
-  const isSummaryStep = view === 'new_project' && currentStep === stepsData.length;
-
-  const renderContent = () => {
-    switch (view) {
-        case 'welcome':
-            return (
-                <WelcomeScreen 
-                    onStartNew={handleRestart}
-                    archive={archive}
-                    onViewProject={handleViewProject}
-                    onDeleteProject={handleDeleteProject}
-                    onUpdateProjectStatus={handleUpdateProjectStatus}
-                />
-            );
-        case 'archive':
-             // This view is deprecated, navigate to welcome instead.
-             // For safety, render a minimal fallback.
-            return <ArchiveView archive={[]} onBack={() => setView('welcome')} onDeleteProject={()=>{}} onUpdateProjectStatus={()=>{}} onViewProject={()=>{}}/>
-        case 'view_archived':
-            return (
-                <SummaryDisplay
-                    project={selectedArchivedProject!}
-                    onRestart={handleRestart}
-                    onSaveProject={() => {}} // Not applicable
-                    isArchived={true}
-                    isSaved={true}
-                    onBackToArchive={() => setView('welcome')}
-                    onUpdateProjectStatus={handleUpdateProjectStatus}
-                />
-            );
-        case 'new_project':
-            return (
-                <>
-                    <ProgressBar steps={stepsData.map(s => s.title.split(': ')[1])} currentStep={currentStep} />
-                    
-                    {error && <div className="my-4 text-center bg-red-100 border border-red-400 text-red-700 p-4 rounded-lg">{error}</div>}
-
-                    {isSummaryStep ? (
-                        <SummaryDisplay 
-                            project={{ 
-                              id: 'current', 
-                              name: 'Proyecto Actual', 
-                              savedAt: new Date().toISOString(),
-                              data: stepsData,
-                              userProfile: userProfile || { name: '', company: '', email: '', phone: '' },
-                              status: 'pending',
-                            }}
-                            onRestart={handleRestart} 
-                            onSaveProject={handleSaveRequest} 
-                            isArchived={false}
-                            isSaved={isProjectSaved}
-                            onUpdateProjectStatus={() => {}}
-                        />
-                    ) : (
-                        <>
-                        <StepCard 
-                            key={currentStep}
-                            stepData={stepsData[currentStep]}
-                            onInputChange={handleInputChange}
-                            onGetAIHelp={handleGetAIHelp}
-                            validationError={validationError}
-                            onRestoreAIResponse={handleRestoreAIResponse}
-                            onDictate={handleDictation}
-                        />
-                        <div className="mt-6 flex justify-between">
-                            <button
-                            onClick={goToPrevStep}
-                            disabled={currentStep === 0}
-                            className="px-6 py-2 bg-slate-200 text-slate-800 font-bold rounded-lg hover:bg-slate-300 transition-colors disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                            >
-                            Anterior
-                            </button>
-                            <button
-                            onClick={goToNextStep}
-                            className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-colors"
-                            >
-                            {currentStep === stepsData.length - 1 ? 'Ver Resumen' : 'Siguiente'}
-                            </button>
-                        </div>
-                        </>
-                    )}
-                </>
-            );
-    }
-  }
-
   return (
-    <div className="min-h-screen text-slate-800 font-sans p-4 sm:p-6 md:p-8">
-      {isSaveModalOpen && (
-          <SaveProjectModal
-              onSave={handleSaveProjectRequest}
-              onClose={() => setIsSaveModalOpen(false)}
-              defaultName="Mi Nuevo Proyecto"
-          />
-      )}
-      {isProfileModalOpen && (
-          <UserProfileSetup
-              onSave={handleProfileSave}
-              onClose={() => {
-                  setIsProfileModalOpen(false);
-                  setProfileSetupIntent(null);
-              }}
-              existingProfile={userProfile}
-          />
-      )}
-      {isSettingsModalOpen && (
-        <SettingsModal
-          currentSettings={aiSettings}
-          onSave={handleSaveSettings}
-          onClose={() => setIsSettingsModalOpen(false)}
-        />
-      )}
-      <div className="bg-white max-w-7xl mx-auto p-6 sm:p-8 md:p-12 rounded-2xl shadow-2xl">
-        <header className="relative text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 cursor-pointer" onClick={() => setView('welcome')}>
-            S.H.I.P. Helper
-          </h1>
-          {view === 'new_project' && (
-            <>
-            <p className="text-lg text-slate-600 mt-2">Estructura, refina y planifica tus ideas con la ayuda de la IA.</p>
-            <button
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="absolute top-0 right-0 p-2 text-slate-500 hover:text-indigo-600 transition-colors"
-              aria-label="Configuración de IA"
-              title="Configuración de IA"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
-            </>
-          )}
+    <main className="container mx-auto px-4 py-8 md:py-12">
+        {isSettingsModalOpen && (
+            <SettingsModal
+                currentSettings={aiSettings}
+                onSave={handleSaveSettings}
+                onClose={() => setIsSettingsModalOpen(false)}
+            />
+        )}
+        {isSaveTemplateModalOpen && projectToTemplate && (
+            <SaveTemplateModal
+                onSave={handleConfirmSaveTemplate}
+                onClose={() => setIsSaveTemplateModalOpen(false)}
+            />
+        )}
+        
+        <header className="flex justify-between items-center mb-8 sticky top-0 bg-slate-200/80 backdrop-blur-sm py-4 z-40 -mx-4 px-4">
+             <h1 onClick={() => view !== 'welcome' && setView('welcome')} className={`text-4xl font-extrabold text-slate-800 tracking-tight ${view !== 'welcome' ? 'cursor-pointer' : ''}`}>
+                S.H.I.P. <span className="font-light text-slate-500">Framework Helper</span>
+             </h1>
+            <div className="flex items-center gap-2">
+                {autoSaveStatus !== 'idle' && view === 'new_project' && (
+                    <div className="text-sm text-slate-500 flex items-center gap-2 transition-opacity duration-300">
+                        {autoSaveStatus === 'saving' && <> <svg className="animate-spin h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Guardando...</>}
+                        {autoSaveStatus === 'saved' && <>✔️ Guardado</>}
+                    </div>
+                )}
+                 <button onClick={() => setView('database')} className="p-2 rounded-full hover:bg-slate-300 transition-colors" aria-label="Abrir base de datos de proyectos">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                 </button>
+                 <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-300 transition-colors" aria-label="Abrir configuración">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                 </button>
+            </div>
         </header>
 
-        <main>
-          {renderContent()}
-        </main>
-      </div>
+      {view === 'welcome' && (
+        <WelcomeScreen
+          onStartNew={startNewProjectFlow}
+          templates={templates}
+          onStartFromTemplate={handleStartFromTemplate}
+          onDeleteTemplate={handleDeleteTemplate}
+          onNavigateToDatabase={() => setView('database')}
+        />
+      )}
+      {view === 'database' && (
+        <DatabaseView
+          archive={archive}
+          onViewProject={handleViewProject}
+          onDeleteProject={handleDeleteProject}
+          onUpdateProjectStatus={handleUpdateProjectStatus}
+          onBack={() => setView('welcome')}
+        />
+      )}
+       {view === 'view_archived' && selectedArchivedProject && (
+        <SummaryDisplay
+            project={selectedArchivedProject}
+            onRestart={startNewProjectFlow}
+            onSaveProject={() => {}}
+            isArchived={true}
+            isSaved={true}
+            onBackToArchive={() => setView('database')}
+            onUpdateProjectStatus={handleUpdateProjectStatus}
+            onSaveAsTemplate={handleSaveAsTemplate}
+        />
+      )}
+      {view === 'new_project' && (
+        <>
+            {showSummary ? (
+                <SummaryDisplay
+                    project={{
+                        id: 'current',
+                        name: projectName,
+                        savedAt: new Date().toISOString(),
+                        data: stepsData,
+                        userProfile: currentProjectProfile,
+                        status: 'pending',
+                    }}
+                    onRestart={() => setShowSummary(false)}
+                    onSaveProject={handleSaveProject}
+                    isArchived={false}
+                    isSaved={isProjectSaved}
+                    onUpdateProjectStatus={() => {}}
+                    onSaveAsTemplate={handleSaveAsTemplate}
+                />
+            ) : (
+                <div className="max-w-5xl mx-auto">
+                    <ProjectInfoForm
+                        projectName={projectName}
+                        userProfile={currentProjectProfile}
+                        onProjectNameChange={setProjectName}
+                        onProfileChange={setCurrentProjectProfile}
+                        errors={validationErrors}
+                    />
 
-      <div
-        aria-live="polite"
-        className={`fixed bottom-6 left-6 z-50 transition-all duration-500 transform ${
-            autoSaveStatus !== 'idle' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-        }`}
-        >
-        <div className="flex items-center gap-3 bg-slate-800/80 backdrop-blur-sm text-white text-sm rounded-lg px-4 py-2 shadow-lg border border-slate-600">
-            {autoSaveStatus === 'saving' && (
-            <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Guardando progreso...</span>
-            </>
+                    <div className="my-8 h-px bg-slate-300" />
+
+                    {stepsData.map((step, index) => (
+                        <div key={step.id} ref={el => stepRefs.current[index] = el} className="mb-8 scroll-mt-24">
+                            <StepCard
+                                stepData={step}
+                                onInputChange={(value) => handleInputChange(index, value)}
+                                onGetAIHelp={() => handleGetAIHelp(index)}
+                                validationError={validationErrors[step.id] || null}
+                                onRestoreAIResponse={(response) => handleRestoreAIResponse(index, response)}
+                                onDictate={(text) => handleDictation(index, text)}
+                            />
+                        </div>
+                    ))}
+
+                    <div className="mt-12 text-center">
+                         {error && (
+                            <div role="alert" className="mb-4 p-4 bg-red-50 border border-red-400 text-red-700 rounded-md">
+                                {error}
+                            </div>
+                        )}
+                        <button
+                            onClick={handleShowSummary}
+                            className="w-full sm:w-auto px-12 py-5 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold rounded-lg text-xl hover:from-teal-600 hover:to-cyan-600 transition-all transform hover:scale-105 shadow-lg shadow-teal-500/30"
+                        >
+                            Ver Resumen del Proyecto
+                        </button>
+                    </div>
+                </div>
             )}
-            {autoSaveStatus === 'saved' && (
-            <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Progreso guardado automáticamente.</span>
-            </>
-            )}
-        </div>
-        </div>
+        </>
+      )}
 
       <VoiceControl
         onCommand={handleVoiceCommand}
         view={view}
-        currentStep={currentStep}
-        isSummaryStep={isSummaryStep}
-        isProjectSaveable={!isProjectSaved}
+        showSummary={showSummary}
+        isProjectSaveable={!isProjectSaved && isSaveable}
       />
-    </div>
+    </main>
   );
 };
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { VoiceCommand } from '../types';
 
@@ -41,29 +42,29 @@ declare global {
   }
 }
 
-type View = 'welcome' | 'new_project' | 'archive' | 'view_archived';
+type View = 'welcome' | 'new_project' | 'database' | 'view_archived';
 
 interface VoiceControlProps {
     onCommand: (command: VoiceCommand, value?: string) => void;
     view: View;
-    currentStep: number;
-    isSummaryStep: boolean;
+    showSummary: boolean;
     isProjectSaveable: boolean;
 }
 
-const commandMap: { keywords: string[]; command: VoiceCommand; view?: View[] }[] = [
-    { keywords: ['siguiente', 'siguiente paso', 'avanzar'], command: 'NEXT_STEP', view: ['new_project'] },
-    { keywords: ['anterior', 'paso anterior'], command: 'PREV_STEP', view: ['new_project'] },
-    { keywords: ['obtener ayuda', 'ayuda de la ia', 'iterar'], command: 'GET_AI_HELP', view: ['new_project'] },
+const commandMap: { keywords: string[]; command: VoiceCommand; view?: View[], requiresValue?: boolean }[] = [
+    { keywords: ['siguiente paso', 'siguiente'], command: 'NEXT_STEP', view: ['new_project'] },
+    { keywords: ['paso anterior', 'anterior'], command: 'PREV_STEP', view: ['new_project'] },
+    { keywords: ['obtener ayuda', 'ayúdame'], command: 'GET_AI_HELP', view: ['new_project'] },
+    { keywords: ['dictar', 'escribe'], command: 'DICTATE', view: ['new_project'], requiresValue: true },
     { keywords: ['empezar nuevo proyecto', 'nuevo proyecto'], command: 'START_NEW', view: ['welcome'] },
-    { keywords: ['ver proyectos', 'ver archivo', 'ver proyectos guardados'], command: 'VIEW_ARCHIVE', view: ['welcome'] },
-    { keywords: ['volver', 'atrás'], command: 'GO_BACK', view: ['archive', 'view_archived'] },
+    { keywords: ['ver base de datos', 'ver proyectos', 'ver archivo', 'ver proyectos guardados'], command: 'VIEW_DATABASE' },
+    { keywords: ['volver', 'atrás'], command: 'GO_BACK' },
     { keywords: ['guardar proyecto'], command: 'SAVE_PROJECT', view: ['new_project'] },
-    { keywords: ['descargar pdf', 'descargar resumen'], command: 'DOWNLOAD_PDF', view: ['new_project'] },
+    { keywords: ['descargar pdf', 'descargar resumen'], command: 'DOWNLOAD_PDF' },
 ];
 
 
-const VoiceControl: React.FC<VoiceControlProps> = ({ onCommand, view, currentStep, isSummaryStep, isProjectSaveable }) => {
+const VoiceControl: React.FC<VoiceControlProps> = ({ onCommand, view, showSummary, isProjectSaveable }) => {
     const [isListening, setIsListening] = useState(false);
     const [isSupported, setIsSupported] = useState(false);
     const [feedback, setFeedback] = useState('');
@@ -102,20 +103,41 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onCommand, view, currentSte
         } else {
             setIsSupported(false);
         }
-    }, []);
+    }, [view, showSummary, isProjectSaveable]); // Re-create listener context if view changes
 
     const processTranscript = (transcript: string) => {
         let commandFound = false;
 
-        for (const item of commandMap) {
-            if (item.keywords.some(keyword => transcript.includes(keyword))) {
-                // Context validation
-                if (item.view && !item.view.includes(view)) continue;
-                if (item.command === 'PREV_STEP' && currentStep === 0) continue;
-                if (item.command === 'NEXT_STEP' && isSummaryStep) continue;
-                if (item.command === 'SAVE_PROJECT' && (!isSummaryStep || !isProjectSaveable)) continue;
-                if (item.command === 'DOWNLOAD_PDF' && !isSummaryStep) continue;
+        const helpMatch = transcript.match(/(?:ayuda|ayúdame) (?:con el )?(?:paso )?(\d+)/);
+        if (helpMatch && helpMatch[1]) {
+            if (view === 'new_project' && !showSummary) {
+                setFeedback(`Comando: Ayuda para paso ${helpMatch[1]}`);
+                onCommand('GET_AI_HELP', helpMatch[1]);
+                return;
+            }
+        }
 
+        for (const item of commandMap) {
+            const matchedKeyword = item.keywords.find(keyword => transcript.startsWith(keyword));
+            if (matchedKeyword) {
+                if (item.view && !item.view.includes(view)) continue;
+                if (item.command === 'SAVE_PROJECT' && !isProjectSaveable) continue;
+                if (item.command === 'DOWNLOAD_PDF' && !showSummary && view !== 'view_archived') continue;
+                if ((item.command === 'NEXT_STEP' || item.command === 'PREV_STEP' || item.command === 'GET_AI_HELP' || item.command === 'DICTATE') && showSummary) continue;
+
+
+                if (item.requiresValue) {
+                    const value = transcript.substring(matchedKeyword.length).trim();
+                    if (value) {
+                        setFeedback(`Dictando: "${value}"`);
+                        onCommand(item.command, value);
+                        commandFound = true;
+                        break;
+                    } else {
+                        continue;
+                    }
+                }
+                
                 setFeedback(`Comando: ${item.keywords[0]}`);
                 onCommand(item.command);
                 commandFound = true;
@@ -124,12 +146,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onCommand, view, currentSte
         }
 
         if (!commandFound) {
-            if (view === 'new_project' && !isSummaryStep) {
-                setFeedback('Dictado añadido.');
-                onCommand('DICTATE', transcript);
-            } else {
-                setFeedback('Comando no reconocido.');
-            }
+            setFeedback('Comando no reconocido.');
         }
     };
 

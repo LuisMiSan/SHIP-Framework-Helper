@@ -1,21 +1,20 @@
 import React from 'react';
-import { ArchivedProject, ProjectStatus } from '../types';
-import StatusBadge from './StatusBadge';
+import { ArchivedProject, ProjectStatus, ProjectTemplate } from '../types';
 
 interface WelcomeScreenProps {
   onStartNew: () => void;
-  archive: ArchivedProject[];
-  onViewProject: (project: ArchivedProject) => void;
-  onDeleteProject: (projectId: string) => void;
-  onUpdateProjectStatus: (projectId: string, status: ProjectStatus) => void;
+  templates: ProjectTemplate[];
+  onStartFromTemplate: (template: ProjectTemplate) => void;
+  onDeleteTemplate: (templateId: string) => void;
+  onNavigateToDatabase: () => void;
 }
 
-const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, archive, onViewProject, onDeleteProject, onUpdateProjectStatus }) => {
-  const hasArchive = archive.length > 0;
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, templates, onStartFromTemplate, onDeleteTemplate, onNavigateToDatabase }) => {
+  const hasTemplates = templates.length > 0;
 
-  const handleDelete = (projectId: string, projectName: string) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar el proyecto "${projectName}"? Esta acción no se puede deshacer.`)) {
-      onDeleteProject(projectId);
+  const handleDeleteTemplate = (templateId: string, templateName: string) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar la plantilla "${templateName}"? Esta acción no se puede deshacer.`)) {
+        onDeleteTemplate(templateId);
     }
   };
 
@@ -35,50 +34,47 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, archive, onVi
           >
             🚀 Empezar un Nuevo Proyecto
           </button>
+          <button
+            onClick={onNavigateToDatabase}
+            className="px-10 py-5 bg-slate-700 text-white font-bold rounded-lg text-xl hover:bg-slate-800 transition-all transform hover:scale-105 shadow-lg shadow-slate-500/30"
+          >
+            📂 Ver Base de Datos
+          </button>
         </div>
 
-        {hasArchive && (
-           <div className="mt-16 text-left w-full max-w-5xl mx-auto">
-             <h2 className="text-3xl font-bold text-slate-800 mb-6 text-center">CRM de Proyectos</h2>
-             <ul className="space-y-4">
-               {archive.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()).map(project => (
-                 <li key={project.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-indigo-500 transition-colors">
-                   <div className="flex-grow">
-                     <div className="flex items-center gap-3 mb-1">
-                       <h3 className="text-xl font-semibold text-indigo-600">{project.name}</h3>
-                       <StatusBadge status={project.status} />
-                     </div>
-                     <p className="text-sm text-slate-500">
-                       para <strong className="font-medium text-slate-600">{project.userProfile?.name || 'Cliente Desconocido'}</strong>
-                        &middot; Guardado el: {new Date(project.savedAt).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}
-                     </p>
-                   </div>
-                   <div className="flex gap-2 self-end sm:self-center flex-wrap">
-                     <div className="flex items-center rounded-md shadow-sm">
-                       <button onClick={() => onUpdateProjectStatus(project.id, 'success')} className="px-3 py-2 bg-green-600 text-white font-semibold rounded-l-md hover:bg-green-700 transition-colors text-sm" title="Marcar como Éxito">
-                         ✔️ Éxito
-                       </button>
-                       <button onClick={() => onUpdateProjectStatus(project.id, 'failed')} className="px-3 py-2 bg-red-600 text-white font-semibold rounded-r-md hover:bg-red-700 transition-colors text-sm" title="Marcar como Fallo">
-                         ❌ Falló
-                       </button>
-                     </div>
-                     <button
-                       onClick={() => onViewProject(project)}
-                       className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 transition-colors text-sm"
-                     >
-                       Ver Resumen
-                     </button>
-                     <button
-                       onClick={() => handleDelete(project.id, project.name)}
-                       className="px-4 py-2 bg-red-800 text-white font-semibold rounded-md hover:bg-red-700 transition-colors text-sm"
-                     >
-                       Eliminar
-                     </button>
-                   </div>
-                 </li>
-               ))}
-             </ul>
-           </div>
+        {hasTemplates && (
+            <div className="mt-16 text-left w-full max-w-5xl mx-auto">
+                <h2 className="text-3xl font-bold text-slate-800 mb-6 text-center">Plantillas</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {templates.map(template => (
+                        <div key={template.id} className="bg-white p-4 rounded-lg border border-slate-200 flex flex-col justify-between items-start gap-3 hover:border-indigo-500 transition-colors shadow-sm">
+                            <div>
+                                <h3 className="text-lg font-semibold text-indigo-600">{template.name}</h3>
+                                <p className="text-xs text-slate-500">
+                                    Creado el: {new Date(template.createdAt).toLocaleDateString('es-ES')}
+                                </p>
+                            </div>
+                            <div className="flex gap-2 self-end w-full">
+                                <button
+                                    onClick={() => onStartFromTemplate(template)}
+                                    className="flex-grow px-3 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 transition-colors text-sm"
+                                >
+                                    Usar Plantilla
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteTemplate(template.id, template.name)}
+                                    className="px-3 py-2 bg-slate-200 text-slate-700 font-semibold rounded-md hover:bg-slate-300 transition-colors text-sm"
+                                    aria-label={`Eliminar plantilla ${template.name}`}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
         )}
       </div>
     </div>

@@ -29,6 +29,19 @@ export interface ArchivedProject {
   status: ProjectStatus;
 }
 
+export interface InProgressProject {
+  projectName: string;
+  userProfile: UserProfile;
+  stepsData: StepData[];
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  data: StepData[];
+}
+
 export type AvailableModel = 'gemini-2.5-flash' | 'gemini-2.5-pro';
 
 export interface AISettings {
@@ -36,12 +49,14 @@ export interface AISettings {
   model: AvailableModel;
 }
 
+export type View = 'welcome' | 'new_project' | 'database' | 'view_archived';
+
 export type VoiceCommand =
   | 'NEXT_STEP'
   | 'PREV_STEP'
   | 'GET_AI_HELP'
   | 'START_NEW'
-  | 'VIEW_ARCHIVE'
+  | 'VIEW_DATABASE'
   | 'GO_BACK'
   | 'SAVE_PROJECT'
   | 'DOWNLOAD_PDF'
