@@ -42,11 +42,12 @@ export interface ProjectTemplate {
   data: StepData[];
 }
 
-export type AvailableModel = 'gemini-2.5-flash' | 'gemini-2.5-pro';
+export type AvailableModel = 'gemini-2.5-flash-lite' | 'gemini-2.5-flash' | 'gemini-2.5-pro';
 
 export interface AISettings {
   temperature: number;
   model: AvailableModel;
+  useThinkingMode: boolean;
 }
 
 export type View = 'welcome' | 'new_project' | 'database' | 'view_archived';

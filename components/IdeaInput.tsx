@@ -1,11 +1,10 @@
 
-
-
 import React, { useState } from 'react';
 import { StepData } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import Tooltip from './Tooltip';
 import DictationButton from './DictationButton';
+import AudioRecorderButton from './AudioRecorderButton';
 
 interface StepCardProps {
   stepData: StepData;
@@ -14,6 +13,9 @@ interface StepCardProps {
   validationError: string | null;
   onRestoreAIResponse: (response: string) => void;
   onDictate: (text: string) => void;
+  onTranscribeAudio: (blob: Blob) => Promise<void>;
+  onPlaySpeech: (text: string, stepId: string) => void;
+  isSpeechPlaying: boolean;
 }
 
 const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
@@ -27,9 +29,50 @@ const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
   return <>{elements}</>;
 };
 
-const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHelp, validationError, onRestoreAIResponse, onDictate }) => {
+const StepIcon: React.FC<{ stepId: StepData['id'] }> = ({ stepId }) => {
+  switch (stepId) {
+    case 'solve':
+      return (
+        <div className="bg-purple-100 p-3 rounded-full flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      );
+    case 'hypothesize':
+      return (
+        <div className="bg-indigo-100 p-3 rounded-full flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+        </div>
+      );
+    case 'implement':
+      return (
+        <div className="bg-teal-100 p-3 rounded-full flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </div>
+      );
+    case 'persevere':
+      return (
+        <div className="bg-cyan-100 p-3 rounded-full flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        </div>
+      );
+    default:
+      return null;
+  }
+};
+
+const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHelp, validationError, onRestoreAIResponse, onDictate, onTranscribeAudio, onPlaySpeech, isSpeechPlaying }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isCurrentResponseCopied, setIsCurrentResponseCopied] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const handleCopy = (textToCopy: string, index: number) => {
     navigator.clipboard.writeText(textToCopy).then(() => {
@@ -50,43 +93,63 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
     });
   };
   
+  const handleTranscription = async (blob: Blob) => {
+    setIsTranscribing(true);
+    await onTranscribeAudio(blob);
+    setIsTranscribing(false);
+  }
+
   const hasPreviousResponse = stepData.aiResponse.trim() !== '' || (stepData.aiResponseHistory && stepData.aiResponseHistory.length > 0);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg border border-slate-200 animate-fade-in-up">
-      <h2 className="text-2xl font-bold text-slate-800 mb-2">{stepData.title}</h2>
-      <p className="text-slate-600 mb-4">
-        {stepData.description.map((part, index) => {
-          if (typeof part === 'string') {
-            return <React.Fragment key={index}>{part}</React.Fragment>;
-          }
-          return (
-            <Tooltip key={index} tip={part.tip}>
-              <span className="text-indigo-500 underline decoration-dotted cursor-help font-semibold">
-                {part.word}
-              </span>
-            </Tooltip>
-          );
-        })}
-      </p>
+      <div className="flex items-start gap-4 mb-4">
+        <StepIcon stepId={stepData.id} />
+        <div className="flex-grow pt-1">
+          <h2 className="text-2xl font-bold text-slate-800">{stepData.title}</h2>
+          <p className="text-slate-600 mt-1">
+            {stepData.description.map((part, index) => {
+              if (typeof part === 'string') {
+                return <React.Fragment key={index}>{part}</React.Fragment>;
+              }
+              return (
+                <Tooltip key={index} tip={part.tip}>
+                  <span className="text-indigo-500 underline decoration-dotted cursor-help font-semibold">
+                    {part.word}
+                  </span>
+                </Tooltip>
+              );
+            })}
+          </p>
+        </div>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label htmlFor="user-input" className="block text-lg font-medium text-slate-700 mb-2">
-            Tu Borrador
-          </label>
+            <div className="flex items-center justify-between mb-2">
+                <label htmlFor={`user-input-${stepData.id}`} className="block text-lg font-medium text-slate-700">
+                    Tu Borrador
+                </label>
+                <div className="flex items-center gap-2">
+                    <AudioRecorderButton 
+                        onRecordingComplete={handleTranscription} 
+                        disabled={stepData.isLoading || isTranscribing}
+                    />
+                     {isTranscribing && <span className="text-sm text-slate-500 animate-pulse">Transcribiendo...</span>}
+                </div>
+            </div>
           <div className="relative">
             <textarea
-              id="user-input"
+              id={`user-input-${stepData.id}`}
               value={stepData.userInput}
               onChange={(e) => onInputChange(e.target.value)}
               placeholder={stepData.placeholder}
               className="w-full p-4 pr-14 bg-slate-100 border border-slate-300 rounded-md text-lg text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors h-64"
-              disabled={stepData.isLoading}
+              disabled={stepData.isLoading || isTranscribing}
               aria-invalid={!!validationError}
               aria-describedby={validationError ? "user-input-error" : undefined}
             />
-            <DictationButton onDictate={onDictate} disabled={stepData.isLoading} className="bottom-3 right-3" />
+            <DictationButton onDictate={onDictate} disabled={stepData.isLoading || isTranscribing} className="bottom-3 right-3" />
           </div>
            {validationError && (
             <div id="user-input-error" role="alert" className="mt-2 p-3 bg-red-50 border border-red-400 text-red-700 text-sm rounded-md flex items-start gap-2 animate-fade-in-up">
@@ -98,11 +161,24 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
           )}
         </div>
         <div>
-          <label htmlFor="ai-response" className="block text-lg font-medium text-slate-700 mb-2">
-            Sugerencias de la IA
-          </label>
+            <div className="flex justify-between items-center mb-2">
+                <label htmlFor={`ai-response-${stepData.id}`} className="text-lg font-medium text-slate-700">
+                    Sugerencias de la IA
+                </label>
+                <button
+                    onClick={() => onPlaySpeech(stepData.aiResponse, stepData.id)}
+                    disabled={!stepData.aiResponse || isSpeechPlaying}
+                    className="flex items-center gap-1.5 text-sm font-semibold py-1.5 px-3 rounded-md transition-all duration-200 bg-slate-200 text-slate-600 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    aria-label="Escuchar sugerencia"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                   <span>{isSpeechPlaying ? '...' : 'Escuchar'}</span>
+                </button>
+            </div>
           <div className="relative">
-            <div className="w-full p-4 bg-slate-50 border border-slate-200 rounded-md text-lg text-slate-700 h-64 overflow-y-auto whitespace-pre-wrap">
+            <div id={`ai-response-${stepData.id}`} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-md text-lg text-slate-700 h-64 overflow-y-auto whitespace-pre-wrap">
               {stepData.isLoading && !stepData.aiResponse ? <LoadingSpinner /> : (stepData.aiResponse ? <MarkdownRenderer text={stepData.aiResponse} /> : 'Aquí aparecerá la ayuda de la IA...')}
             </div>
             {stepData.aiResponse && !stepData.isLoading && (

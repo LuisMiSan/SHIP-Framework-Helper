@@ -126,6 +126,12 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
               <button onClick={onBackToArchive} className="w-full sm:w-auto px-6 py-3 bg-slate-200 text-slate-800 font-bold rounded-lg text-lg hover:bg-slate-300 transition-all transform hover:scale-105">
                 &larr; Volver a la Base de Datos
               </button>
+               <button
+                  onClick={onRestart}
+                  className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold rounded-lg text-lg hover:from-teal-600 hover:to-cyan-600 transition-all transform hover:scale-105"
+                >
+                Empezar un Nuevo Proyecto
+               </button>
               <div className="flex gap-2">
                 <button onClick={() => onUpdateProjectStatus(project.id, 'success')} className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white font-bold rounded-lg text-lg hover:bg-green-700 transition-all transform hover:scale-105">
                   Éxito
@@ -138,9 +144,9 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
         ) : (
             <button
             onClick={onRestart}
-            className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold rounded-lg text-lg hover:from-teal-600 hover:to-cyan-600 transition-all transform hover:scale-105"
+            className="w-full sm:w-auto px-8 py-3 bg-slate-200 text-slate-800 font-bold rounded-lg text-lg hover:bg-slate-300 transition-all transform hover:scale-105"
             >
-            Empezar un Nuevo Proyecto
+            &larr; Volver y Editar
             </button>
         )}
         
@@ -150,7 +156,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
            disabled={isSaved}
            className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-teal-800 text-white font-bold rounded-lg text-lg hover:bg-teal-700 transition-all transform hover:scale-105 disabled:bg-slate-400 disabled:cursor-not-allowed disabled:transform-none"
          >
-           {isSaved ? <span className="flex items-center justify-center animate-pop-in">✔️ Guardado</span> : '📂 Guardar Proyecto'}
+           {isSaved ? <span className="flex items-center justify-center animate-pop-in">✔️ Guardado</span> : '📂 Guardar y Salir'}
          </button>
         )}
 

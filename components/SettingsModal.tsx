@@ -9,6 +9,11 @@ interface SettingsModalProps {
 
 const modelOptions: { id: AvailableModel; name: string; description: string }[] = [
     {
+        id: 'gemini-2.5-flash-lite',
+        name: 'Gemini Flash Lite',
+        description: 'El más rápido para respuestas casi instantáneas en tareas sencillas.'
+    },
+    {
         id: 'gemini-2.5-flash',
         name: 'Gemini Flash',
         description: 'Rápido y eficiente, ideal para tareas cotidianas y respuestas rápidas.'
@@ -22,16 +27,19 @@ const modelOptions: { id: AvailableModel; name: string; description: string }[] 
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, onClose }) => {
     const [temperature, setTemperature] = useState(currentSettings.temperature);
-    const [model, setModel] = useState<AvailableModel>(currentSettings.model || 'gemini-2.5-flash');
+    const [model, setModel] = useState<AvailableModel>(currentSettings.model || 'gemini-2.5-flash-lite');
+    const [useThinkingMode, setUseThinkingMode] = useState(!!currentSettings.useThinkingMode);
+
 
     // Sync state if props change while modal is open
     useEffect(() => {
         setTemperature(currentSettings.temperature);
-        setModel(currentSettings.model || 'gemini-2.5-flash');
+        setModel(currentSettings.model || 'gemini-2.5-flash-lite');
+        setUseThinkingMode(!!currentSettings.useThinkingMode);
     }, [currentSettings]);
 
     const handleSave = () => {
-        onSave({ temperature, model });
+        onSave({ temperature, model, useThinkingMode });
     };
 
     const getCreativityLabel = (value: number) => {
@@ -94,17 +102,38 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                         </p>
                     </div>
 
+                     <div className="border-t border-slate-200 pt-8">
+                        <div className="flex justify-between items-center">
+                            <label className="font-medium text-slate-700">
+                                Modo de Pensamiento Profundo
+                            </label>
+                            <label htmlFor="thinking-mode-toggle" className="relative inline-flex items-center cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    id="thinking-mode-toggle" 
+                                    className="sr-only peer"
+                                    checked={useThinkingMode}
+                                    onChange={(e) => setUseThinkingMode(e.target.checked)}
+                                />
+                                <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-500">
+                           Activa esta opción para que la IA utilice <span className="font-semibold text-slate-600">Gemini 2.5 Pro</span> con su máxima capacidad de razonamiento. Ideal para problemas complejos, aunque puede ser más lento.
+                        </p>
+                    </div>
+
                     <div className="border-t border-slate-200 pt-8">
                         <label className="block font-medium text-slate-700 mb-3">
                             Modelo de IA
                         </label>
-                        <div className="space-y-4">
+                        <div className={`space-y-4 ${useThinkingMode ? 'opacity-50' : ''}`}>
                             {modelOptions.map((option) => (
                                 <div
                                     key={option.id}
-                                    onClick={() => setModel(option.id)}
-                                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                                        model === option.id
+                                    onClick={() => !useThinkingMode && setModel(option.id)}
+                                    className={`p-4 border rounded-lg transition-all ${useThinkingMode ? 'cursor-not-allowed' : 'cursor-pointer'} ${
+                                        model === option.id && !useThinkingMode
                                             ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-500'
                                             : 'bg-white border-slate-300 hover:border-slate-400'
                                     }`}
@@ -117,10 +146,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                             value={option.id}
                                             checked={model === option.id}
                                             onChange={() => setModel(option.id)}
+                                            disabled={useThinkingMode}
                                             className="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
                                         />
                                         <div className="ml-3">
-                                            <label htmlFor={option.id} className="block text-sm font-bold text-slate-800 cursor-pointer">
+                                            <label htmlFor={option.id} className={`block text-sm font-bold text-slate-800 ${useThinkingMode ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                                                 {option.name}
                                             </label>
                                             <p className="text-sm text-slate-500">{option.description}</p>
@@ -130,7 +160,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                             ))}
                         </div>
                          <p className="mt-2 text-sm text-slate-500">
-                            Pro puede ofrecer respuestas de mayor calidad pero es más lento. Flash es mejor para iteraciones rápidas.
+                            {useThinkingMode 
+                                ? 'El Modo de Pensamiento Profundo anula esta selección para usar Gemini 2.5 Pro.' 
+                                : 'Pro puede ofrecer respuestas de mayor calidad pero es más lento. Flash es mejor para iteraciones rápidas.'}
                         </p>
                     </div>
 
