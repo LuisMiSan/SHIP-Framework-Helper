@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus, AISettings, ProjectTemplate, InProgressProject, View } from './types';
@@ -310,7 +311,7 @@ interface ProjectWorkspaceProps {
     setApiKeyStatus: (status: 'valid' | 'missing' | 'invalid') => void;
     onSaveProject: (projectData: Omit<ArchivedProject, 'id' | 'savedAt' | 'status'>) => void;
     onSaveAsTemplate: (data: StepData[]) => void;
-    onPlaySpeech: (text: string) => Promise<void>;
+    onPlaySpeech: (text: string, stepId: string) => Promise<void>;
     speechPlayingForStep: string | null;
 }
 
@@ -495,7 +496,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
                     userProfile: currentProjectProfile,
                     status: 'pending',
                 }}
-                onRestart={() => project.resetProject()}
+                onRestart={() => setShowSummary(false)}
                 onSaveProject={handleSaveAndArchive}
                 isArchived={false}
                 isSaved={isProjectSaved}
@@ -562,6 +563,7 @@ const App: React.FC = () => {
   const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
   const [projectToTemplate, setProjectToTemplate] = useState<StepData[] | null>(null);
   const [speechState, setSpeechState] = useState<{ playing: boolean, forStep: string | null }>({ playing: false, forStep: null });
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
   const { archive, templates, aiSettings, updateAndSaveArchive, updateAndSaveTemplates, handleSaveSettings } = useAppData();
   const project = useProject(() => setView('new_project'));
@@ -582,6 +584,27 @@ const App: React.FC = () => {
         }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hasUnsavedChanges = useCallback(() => {
+      if (project.isProjectSaved) return false;
+
+      const { stepsData, projectName, currentProjectProfile } = project;
+      const isPristine =
+          stepsData.every(step => !step.userInput.trim() && !step.aiResponse.trim()) &&
+          !projectName.trim() &&
+          !currentProjectProfile.name.trim();
+      
+      return !isPristine;
+  }, [project.isProjectSaved, project.stepsData, project.projectName, project.currentProjectProfile]);
+
+  const attemptNavigation = useCallback((callback: () => void) => {
+      if (view === 'new_project' && hasUnsavedChanges()) {
+          setPendingNavigation(() => callback);
+      } else {
+          callback();
+      }
+  }, [view, hasUnsavedChanges]);
+
 
   const handlePlaySpeech = useCallback(async (text: string, stepId: string) => {
     if (speechState.playing) {
@@ -697,10 +720,10 @@ const App: React.FC = () => {
     // but it would follow this pattern:
     switch (command) {
         case 'START_NEW':
-            if (view === 'welcome') project.resetProject();
+            if (view === 'welcome') attemptNavigation(project.resetProject);
             break;
         case 'VIEW_DATABASE':
-            setView('database');
+            attemptNavigation(() => setView('database'));
             break;
         case 'GO_BACK':
             if (view === 'view_archived' || view === 'database') setView('welcome');
@@ -718,11 +741,11 @@ const App: React.FC = () => {
     switch (view) {
       case 'welcome':
         return <WelcomeScreen
-          onStartNew={project.resetProject}
+          onStartNew={() => attemptNavigation(project.resetProject)}
           templates={templates}
-          onStartFromTemplate={handleStartFromTemplate}
+          onStartFromTemplate={(template) => attemptNavigation(() => handleStartFromTemplate(template))}
           onDeleteTemplate={handleDeleteTemplate}
-          onNavigateToDatabase={() => setView('database')}
+          onNavigateToDatabase={() => attemptNavigation(() => setView('database'))}
         />;
       case 'database':
         return <DatabaseView
@@ -776,9 +799,28 @@ const App: React.FC = () => {
               onClose={() => setIsSaveTemplateModalOpen(false)}
           />
       )}
+      {pendingNavigation && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in-up">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+                <h2 id="confirm-modal-title" className="text-2xl font-bold text-slate-800">¿Descartar cambios?</h2>
+                <p className="text-slate-600 my-4">Tienes cambios sin guardar. Si continúas, se perderá tu progreso actual.</p>
+                <div className="flex justify-end gap-4 mt-8">
+                    <button onClick={() => setPendingNavigation(null)} className="px-6 py-2 bg-slate-200 text-slate-800 font-bold rounded-lg hover:bg-slate-300 transition-colors">
+                        Cancelar
+                    </button>
+                    <button onClick={() => {
+                        if (pendingNavigation) pendingNavigation();
+                        setPendingNavigation(null);
+                    }} className="px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">
+                        Descartar
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
         
       <header className="flex justify-between items-center mb-8 sticky top-0 bg-slate-200/80 backdrop-blur-sm py-4 z-40 -mx-4 px-4">
-           <h1 onClick={() => view !== 'welcome' && setView('welcome')} className={`text-4xl font-extrabold text-slate-800 tracking-tight ${view !== 'welcome' ? 'cursor-pointer' : ''}`}>
+           <h1 onClick={() => view !== 'welcome' && attemptNavigation(() => setView('welcome'))} className={`text-4xl font-extrabold text-slate-800 tracking-tight ${view !== 'welcome' ? 'cursor-pointer' : ''}`}>
               S.H.I.P. <span className="font-light text-slate-500">Framework Helper</span>
            </h1>
           <div className="flex items-center gap-2">
@@ -788,7 +830,7 @@ const App: React.FC = () => {
                       {autoSaveStatus === 'saved' && <>✔️ Guardado</>}
                   </div>
               )}
-               <button onClick={() => setView('database')} className="p-2 rounded-full hover:bg-slate-300 transition-colors" aria-label="Abrir base de datos de proyectos">
+               <button onClick={() => attemptNavigation(() => setView('database'))} className="p-2 rounded-full hover:bg-slate-300 transition-colors" aria-label="Abrir base de datos de proyectos">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                   </svg>
