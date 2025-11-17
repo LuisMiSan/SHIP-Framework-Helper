@@ -100,11 +100,11 @@ const DictationButton: React.FC<DictationButtonProps> = ({ onDictate, disabled =
             type="button"
             onClick={handleToggleListening}
             disabled={disabled}
-            className={`absolute p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+            className={`absolute p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 ${
                 isListening
                     ? 'bg-red-500 text-white animate-pulse'
-                    : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-            } disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed ${className}`}
+                    : 'bg-sky-700 text-slate-200 hover:bg-sky-600'
+            } disabled:bg-sky-900/50 disabled:text-slate-500 disabled:cursor-not-allowed ${className}`}
             aria-label={isListening ? 'Detener dictado' : 'Iniciar dictado por voz'}
             title={isListening ? 'Detener dictado' : 'Iniciar dictado por voz'}
         >

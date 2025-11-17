@@ -58,28 +58,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
             aria-modal="true"
             aria-labelledby="settings-modal-title"
         >
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full transform transition-all">
+            <div className="bg-sky-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full transform transition-all">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 id="settings-modal-title" className="text-2xl font-bold text-slate-800">
+                    <h2 id="settings-modal-title" className="text-2xl font-bold text-slate-100">
                         Configuración de la IA
                     </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="Cerrar">
+                    <button onClick={onClose} className="text-slate-500 hover:text-slate-300" aria-label="Cerrar">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
-                <p className="text-slate-600 mb-8">
+                <p className="text-slate-300 mb-8">
                     Ajusta los parámetros de la IA para adaptar las sugerencias a tus necesidades.
                 </p>
 
                 <div className="space-y-8">
                     <div>
                         <div className="flex justify-between items-center mb-2">
-                             <label htmlFor="temperature" className="block font-medium text-slate-700">
+                             <label htmlFor="temperature" className="block font-medium text-slate-200">
                                 Creatividad (Temperatura)
                             </label>
-                            <span className="text-sm font-semibold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-md">
+                            <span className="text-sm font-semibold text-orange-300 bg-orange-900/50 px-2 py-1 rounded-md">
                                 {getCreativityLabel(temperature)}
                             </span>
                         </div>
@@ -93,20 +93,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                             step="0.1"
                             value={temperature}
                             onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                            className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer"
                         />
-                         <div className="flex justify-between text-xs text-slate-500 mt-1">
+                         <div className="flex justify-between text-xs text-slate-400 mt-1">
                             <span>Enfocado</span>
                             <span>Creativo</span>
                         </div>
-                        <p className="mt-2 text-sm text-slate-500">
+                        <p className="mt-2 text-sm text-slate-400">
                             Controla la aleatoriedad de las respuestas. Valores bajos son más predecibles; valores altos generan ideas más diversas. (Recomendado: 0.7)
                         </p>
                     </div>
 
-                    <div className="border-t border-slate-200 pt-8">
+                    <div className="border-t border-sky-700 pt-8">
                         <div className="flex justify-between items-center">
-                            <label className="font-medium text-slate-700">
+                            <label className="font-medium text-slate-200">
                                 Búsqueda en Google
                             </label>
                             <label htmlFor="google-search-toggle" className="relative inline-flex items-center cursor-pointer">
@@ -121,17 +121,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                         if (checked) setUseThinkingMode(false);
                                     }}
                                 />
-                                <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div className="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                             </label>
                         </div>
-                        <p className="mt-2 text-sm text-slate-500">
+                        <p className="mt-2 text-sm text-slate-400">
                            Permite a la IA usar Google Search para obtener información actualizada y relevante para sus sugerencias.
                         </p>
                     </div>
 
-                     <div className="border-t border-slate-200 pt-8">
+                     <div className="border-t border-sky-700 pt-8">
                         <div className={`flex justify-between items-center ${useGoogleSearch ? 'opacity-50' : ''}`}>
-                            <label className="font-medium text-slate-700">
+                            <label className="font-medium text-slate-200">
                                 Modo de Pensamiento Profundo
                             </label>
                             <label htmlFor="thinking-mode-toggle" className="relative inline-flex items-center cursor-pointer">
@@ -147,17 +147,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                         if (checked) setUseGoogleSearch(false);
                                     }}
                                 />
-                                <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div className="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                             </label>
                         </div>
-                        <p className="mt-2 text-sm text-slate-500">
-                           Activa esta opción para que la IA utilice <span className="font-semibold text-slate-600">Gemini 2.5 Pro</span> con su máxima capacidad de razonamiento. Ideal para problemas complejos, aunque puede ser más lento.
+                        <p className="mt-2 text-sm text-slate-400">
+                           Activa esta opción para que la IA utilice <span className="font-semibold text-slate-300">Gemini 2.5 Pro</span> con su máxima capacidad de razonamiento. Ideal para problemas complejos, aunque puede ser más lento.
                            {useGoogleSearch && <span className="font-medium"> (No disponible con Búsqueda en Google)</span>}
                         </p>
                     </div>
 
-                    <div className="border-t border-slate-200 pt-8">
-                        <label className="block font-medium text-slate-700 mb-3">
+                    <div className="border-t border-sky-700 pt-8">
+                        <label className="block font-medium text-slate-200 mb-3">
                             Modelo de IA
                         </label>
                         <div className={`space-y-4 ${useThinkingMode || useGoogleSearch ? 'opacity-50' : ''}`}>
@@ -167,8 +167,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                     onClick={() => !(useThinkingMode || useGoogleSearch) && setModel(option.id)}
                                     className={`p-4 border rounded-lg transition-all ${(useThinkingMode || useGoogleSearch) ? 'cursor-not-allowed' : 'cursor-pointer'} ${
                                         model === option.id && !(useThinkingMode || useGoogleSearch)
-                                            ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-500'
-                                            : 'bg-white border-slate-300 hover:border-slate-400'
+                                            ? 'bg-orange-500/10 border-orange-500 ring-2 ring-orange-500'
+                                            : 'bg-sky-700 border-sky-600 hover:border-sky-500'
                                     }`}
                                 >
                                     <div className="flex items-center">
@@ -180,19 +180,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                             checked={model === option.id}
                                             onChange={() => setModel(option.id)}
                                             disabled={useThinkingMode || useGoogleSearch}
-                                            className="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                                            className="h-4 w-4 text-orange-500 border-slate-500 focus:ring-orange-500"
                                         />
                                         <div className="ml-3">
-                                            <label htmlFor={option.id} className={`block text-sm font-bold text-slate-800 ${(useThinkingMode || useGoogleSearch) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                            <label htmlFor={option.id} className={`block text-sm font-bold text-slate-100 ${(useThinkingMode || useGoogleSearch) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                                                 {option.name}
                                             </label>
-                                            <p className="text-sm text-slate-500">{option.description}</p>
+                                            <p className="text-sm text-slate-400">{option.description}</p>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                         <p className="mt-2 text-sm text-slate-500">
+                         <p className="mt-2 text-sm text-slate-400">
                             {useThinkingMode 
                                 ? 'El Modo de Pensamiento Profundo anula esta selección para usar Gemini 2.5 Pro.' 
                                 : useGoogleSearch
@@ -204,10 +204,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                 </div>
 
                 <div className="flex justify-end gap-4 mt-10">
-                    <button type="button" onClick={onClose} className="px-6 py-2 bg-slate-200 text-slate-800 font-bold rounded-lg hover:bg-slate-300 transition-colors">
+                    <button type="button" onClick={onClose} className="px-6 py-2 bg-slate-600 text-slate-100 font-bold rounded-lg hover:bg-slate-500 transition-colors">
                         Cancelar
                     </button>
-                    <button type="button" onClick={handleSave} className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-colors">
+                    <button type="button" onClick={handleSave} className="px-6 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors">
                         Guardar Cambios
                     </button>
                 </div>

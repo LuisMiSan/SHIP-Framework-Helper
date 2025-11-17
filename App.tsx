@@ -536,7 +536,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
                 errors={validationErrors}
             />
 
-            <div className="my-8 h-px bg-slate-300" />
+            <div className="my-8 h-px bg-slate-700" />
 
             {stepsData.map((step, index) => (
                 <div key={step.id} ref={el => stepRefs.current[index] = el} className="mb-8 scroll-mt-24">
@@ -556,13 +556,13 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
 
             <div className="mt-12 text-center">
                  {apiError && (
-                    <div role="alert" className="mb-4 p-4 bg-red-50 border border-red-400 text-red-700 rounded-md">
+                    <div role="alert" className="mb-4 p-4 bg-red-900/40 border border-red-600 text-red-300 rounded-md">
                         {apiError}
                     </div>
                 )}
                 <button
                     onClick={handleShowSummary}
-                    className="w-full sm:w-auto px-12 py-5 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold rounded-lg text-xl hover:from-teal-600 hover:to-cyan-600 transition-all transform hover:scale-105 shadow-lg shadow-teal-500/30"
+                    className="w-full sm:w-auto px-12 py-5 bg-orange-500 text-white font-bold rounded-lg text-xl hover:bg-orange-600 transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30"
                 >
                     Ver Resumen del Proyecto
                 </button>
@@ -821,11 +821,11 @@ const App: React.FC = () => {
       )}
       {pendingNavigation && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in-up">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
-                <h2 id="confirm-modal-title" className="text-2xl font-bold text-slate-800">¿Descartar cambios?</h2>
-                <p className="text-slate-600 my-4">Tienes cambios sin guardar. Si continúas, se perderá tu progreso actual.</p>
+            <div className="bg-sky-800 rounded-2xl shadow-2xl p-8 max-w-md w-full" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+                <h2 id="confirm-modal-title" className="text-2xl font-bold text-slate-100">¿Descartar cambios?</h2>
+                <p className="text-slate-300 my-4">Tienes cambios sin guardar. Si continúas, se perderá tu progreso actual.</p>
                 <div className="flex justify-end gap-4 mt-8">
-                    <button onClick={() => setPendingNavigation(null)} className="px-6 py-2 bg-slate-200 text-slate-800 font-bold rounded-lg hover:bg-slate-300 transition-colors">
+                    <button onClick={() => setPendingNavigation(null)} className="px-6 py-2 bg-slate-600 text-slate-100 font-bold rounded-lg hover:bg-slate-500 transition-colors">
                         Cancelar
                     </button>
                     <button onClick={() => {
@@ -839,24 +839,24 @@ const App: React.FC = () => {
         </div>
       )}
         
-      <header className="flex justify-between items-center mb-8 sticky top-0 bg-slate-200/80 backdrop-blur-sm py-4 z-40 -mx-4 px-4">
-           <h1 onClick={() => view !== 'welcome' && attemptNavigation(() => setView('welcome'))} className={`text-4xl font-extrabold text-slate-800 tracking-tight ${view !== 'welcome' ? 'cursor-pointer' : ''}`}>
-              S.H.I.P. <span className="font-light text-slate-500">Framework Helper</span>
+      <header className="flex justify-between items-center mb-8 sticky top-0 bg-sky-900/80 backdrop-blur-sm py-4 z-40 -mx-4 px-4">
+           <h1 onClick={() => view !== 'welcome' && attemptNavigation(() => setView('welcome'))} className={`text-4xl font-extrabold text-slate-100 tracking-tight ${view !== 'welcome' ? 'cursor-pointer' : ''}`}>
+              S.H.I.P. <span className="font-light text-slate-400">Framework Helper</span>
            </h1>
           <div className="flex items-center gap-2">
               {autoSaveStatus !== 'idle' && view === 'new_project' && (
-                  <div className="text-sm text-slate-500 flex items-center gap-2 transition-opacity duration-300">
-                      {autoSaveStatus === 'saving' && <> <svg className="animate-spin h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Guardando...</>}
+                  <div className="text-sm text-slate-400 flex items-center gap-2 transition-opacity duration-300">
+                      {autoSaveStatus === 'saving' && <> <svg className="animate-spin h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Guardando...</>}
                       {autoSaveStatus === 'saved' && <>✔️ Guardado</>}
                   </div>
               )}
-               <button onClick={() => attemptNavigation(() => setView('database'))} className="p-2 rounded-full hover:bg-slate-300 transition-colors" aria-label="Abrir base de datos de proyectos">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+               <button onClick={() => attemptNavigation(() => setView('database'))} className="p-2 rounded-full hover:bg-sky-800 transition-colors" aria-label="Abrir base de datos de proyectos">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                   </svg>
                </button>
-               <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-300 transition-colors" aria-label="Abrir configuración">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+               <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-sky-800 transition-colors" aria-label="Abrir configuración">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>

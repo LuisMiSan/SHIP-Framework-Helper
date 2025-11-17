@@ -53,7 +53,7 @@ const AudioRecorderButton: React.FC<AudioRecorderButtonProps> = ({ onRecordingCo
     }, [isRecording]);
 
     if (!isSupported) {
-        return <p className="text-xs text-red-500">Grabación no soportada.</p>
+        return <p className="text-xs text-red-400">Grabación no soportada.</p>
     }
 
     const title = isRecording ? "Detener grabación y transcribir" : "Grabar audio para transcribir";
@@ -65,10 +65,10 @@ const AudioRecorderButton: React.FC<AudioRecorderButtonProps> = ({ onRecordingCo
             disabled={disabled}
             className={`flex items-center gap-1.5 text-sm font-semibold py-1.5 px-3 rounded-md transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500
                 ${isRecording 
-                    ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                    : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                    ? 'bg-red-900/50 text-red-300 hover:bg-red-800/50' 
+                    : 'bg-sky-700 text-slate-200 hover:bg-sky-600'
                 } 
-                disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed`}
+                disabled:bg-sky-900/50 disabled:text-slate-500 disabled:cursor-not-allowed`}
             aria-label={title}
             title={title}
         >

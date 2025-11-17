@@ -37,7 +37,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
     try {
       const canvas = await html2canvas(summaryContentRef.current, {
         scale: 2,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#0f172a', // Corresponds to slate-900 or a dark blue
         useCORS: true,
       });
       
@@ -82,17 +82,17 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
   const hasProfileData = project.userProfile && (project.userProfile.name || project.userProfile.company || project.userProfile.email || project.userProfile.phone);
 
   return (
-    <div className="bg-white p-6 rounded-lg animate-fade-in-up">
-      <div ref={summaryContentRef} className="space-y-8 bg-white p-8 rounded">
+    <div className="bg-sky-800 p-6 rounded-lg animate-fade-in-up">
+      <div ref={summaryContentRef} className="space-y-8 bg-sky-800 p-8 rounded text-slate-200">
         <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-slate-800">{project.name}</h2>
+            <h2 className="text-3xl font-bold text-slate-100">{project.name}</h2>
             {isArchived && <div className="mt-2"><StatusBadge status={project.status} /></div>}
         </div>
         
         {hasProfileData && (
-          <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
-              <h3 className="text-xl font-bold text-slate-700 mb-4">Información del Cliente</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-slate-600">
+          <div className="bg-sky-700/50 p-6 rounded-lg border border-sky-700">
+              <h3 className="text-xl font-bold text-slate-200 mb-4">Información del Cliente</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-slate-300">
                   <p><strong>Nombre:</strong> {project.userProfile.name || 'N/A'}</p>
                   <p><strong>Empresa:</strong> {project.userProfile.company || 'N/A'}</p>
                   <p><strong>Email:</strong> {project.userProfile.email || 'N/A'}</p>
@@ -102,26 +102,26 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
         )}
 
         {project.data.map(step => (
-          <div key={step.id} className="border-b border-slate-200 pb-6 last:border-b-0">
-            <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 mb-4">{step.title}</h3>
+          <div key={step.id} className="border-b border-sky-700 pb-6 last:border-b-0">
+            <h3 className="text-2xl font-bold text-sky-300 mb-4">{step.title}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="text-lg font-semibold text-slate-700 mb-2">Tu Borrador</h4>
-                <p className="bg-slate-50 p-4 rounded-md whitespace-pre-wrap text-slate-600 border border-slate-200">{step.userInput || 'No se proporcionó información.'}</p>
+                <h4 className="text-lg font-semibold text-slate-200 mb-2">Tu Borrador</h4>
+                <p className="bg-sky-900 p-4 rounded-md whitespace-pre-wrap text-slate-300 border border-sky-700">{step.userInput || 'No se proporcionó información.'}</p>
               </div>
               <div>
-                <h4 className="text-lg font-semibold text-slate-700 mb-2">Sugerencias de la IA</h4>
-                <div className="bg-slate-50 p-4 rounded-md whitespace-pre-wrap text-slate-600 border border-slate-200">
+                <h4 className="text-lg font-semibold text-slate-200 mb-2">Sugerencias de la IA</h4>
+                <div className="bg-sky-900 p-4 rounded-md whitespace-pre-wrap text-slate-300 border border-sky-700">
                   {step.aiResponse ? <MarkdownRenderer text={step.aiResponse} /> : 'No se generó ninguna sugerencia.'}
                 </div>
                  {step.groundingChunks && step.groundingChunks.length > 0 && (
-                    <div className="mt-2 p-2 bg-slate-100 border border-slate-200 rounded-md">
-                        <h5 className="text-xs font-semibold text-slate-500 mb-1">Fuentes:</h5>
+                    <div className="mt-2 p-2 bg-sky-800 border border-sky-700 rounded-md">
+                        <h5 className="text-xs font-semibold text-slate-400 mb-1">Fuentes:</h5>
                         <ul className="space-y-1">
                             {step.groundingChunks.map((chunk, i) => (
                                 chunk.web && (
                                     <li key={i} className="text-xs">
-                                        <a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline break-all">
+                                        <a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline break-all">
                                             {chunk.web.title || chunk.web.uri}
                                         </a>
                                     </li>
@@ -139,12 +139,12 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
       <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4 flex-wrap">
         {isArchived ? (
             <>
-              <button onClick={onBackToArchive} className="w-full sm:w-auto px-6 py-3 bg-slate-200 text-slate-800 font-bold rounded-lg text-lg hover:bg-slate-300 transition-all transform hover:scale-105">
+              <button onClick={onBackToArchive} className="w-full sm:w-auto px-6 py-3 bg-slate-600 text-slate-100 font-bold rounded-lg text-lg hover:bg-slate-500 transition-all transform hover:scale-105">
                 &larr; Volver a la Base de Datos
               </button>
                <button
                   onClick={onRestart}
-                  className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold rounded-lg text-lg hover:from-teal-600 hover:to-cyan-600 transition-all transform hover:scale-105"
+                  className="w-full sm:w-auto px-8 py-3 bg-orange-500 text-white font-bold rounded-lg text-lg hover:bg-orange-600 transition-all transform hover:scale-105"
                 >
                 Empezar un Nuevo Proyecto
                </button>
@@ -160,7 +160,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
         ) : (
             <button
             onClick={onRestart}
-            className="w-full sm:w-auto px-8 py-3 bg-slate-200 text-slate-800 font-bold rounded-lg text-lg hover:bg-slate-300 transition-all transform hover:scale-105"
+            className="w-full sm:w-auto px-8 py-3 bg-slate-600 text-slate-100 font-bold rounded-lg text-lg hover:bg-slate-500 transition-all transform hover:scale-105"
             >
             &larr; Volver y Editar
             </button>
@@ -170,7 +170,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
            <button
            onClick={handleSave}
            disabled={isSaved}
-           className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-teal-800 text-white font-bold rounded-lg text-lg hover:bg-teal-700 transition-all transform hover:scale-105 disabled:bg-slate-400 disabled:cursor-not-allowed disabled:transform-none"
+           className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-sky-700 text-white font-bold rounded-lg text-lg hover:bg-sky-600 transition-all transform hover:scale-105 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none"
          >
            {isSaved ? <span className="flex items-center justify-center animate-pop-in">✔️ Guardado</span> : '📂 Guardar y Salir'}
          </button>
@@ -180,7 +180,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
           id="download-pdf-button"
           onClick={handleDownloadPDF}
           disabled={isGeneratingPdf}
-          className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg text-lg hover:bg-indigo-700 transition-all transform hover:scale-105 disabled:bg-indigo-400 disabled:cursor-not-allowed disabled:transform-none"
+          className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-sky-600 text-white font-bold rounded-lg text-lg hover:bg-sky-700 transition-all transform hover:scale-105 disabled:bg-sky-700 disabled:cursor-not-allowed disabled:transform-none"
         >
           {isGeneratingPdf ? (
             <>
@@ -196,7 +196,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
         </button>
         <button
           onClick={() => onSaveAsTemplate(project.data)}
-          className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-slate-600 text-white font-bold rounded-lg text-lg hover:bg-slate-700 transition-all transform hover:scale-105"
+          className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-sky-700 text-white font-bold rounded-lg text-lg hover:bg-sky-600 transition-all transform hover:scale-105"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />

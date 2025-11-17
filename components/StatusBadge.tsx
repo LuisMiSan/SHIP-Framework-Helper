@@ -8,15 +8,15 @@ interface StatusBadgeProps {
 const statusConfig = {
   pending: {
     text: 'Pendiente',
-    classes: 'bg-slate-100 text-slate-600 border-slate-300',
+    classes: 'bg-slate-600 text-slate-200 border-slate-500',
   },
   success: {
     text: 'Éxito',
-    classes: 'bg-green-100 text-green-700 border-green-300',
+    classes: 'bg-green-800/80 text-green-200 border-green-700',
   },
   failed: {
     text: 'Falló',
-    classes: 'bg-red-100 text-red-700 border-red-300',
+    classes: 'bg-red-800/80 text-red-200 border-red-700',
   },
 };
 

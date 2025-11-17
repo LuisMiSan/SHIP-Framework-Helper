@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { VoiceCommand } from '../types';
 
@@ -175,10 +176,10 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onCommand, view, showSummar
             )}
             <button
                 onClick={handleToggleListening}
-                className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-offset-slate-200 ${
+                className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-offset-sky-900 ${
                     isListening
                     ? 'bg-red-500 text-white animate-pulse ring-red-400'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-500 hover:scale-110 ring-indigo-500'
+                    : 'bg-sky-600 text-white hover:bg-sky-500 hover:scale-110 ring-sky-500'
                 }`}
                 aria-label={isListening ? 'Detener grabación de voz' : 'Activar asistente de voz'}
             >
