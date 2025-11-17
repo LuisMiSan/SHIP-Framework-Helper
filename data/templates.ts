@@ -9,6 +9,7 @@ const createTemplateData = (solve: string, hypothesize: string, implement: strin
     aiResponse: '',
     isLoading: false,
     aiResponseHistory: [],
+    groundingChunks: [],
   }));
 };
 

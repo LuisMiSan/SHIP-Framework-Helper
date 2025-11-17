@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { StepData } from '../types';
 import LoadingSpinner from './LoadingSpinner';
@@ -106,7 +107,16 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
       <div className="flex items-start gap-4 mb-4">
         <StepIcon stepId={stepData.id} />
         <div className="flex-grow pt-1">
-          <h2 className="text-2xl font-bold text-slate-800">{stepData.title}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-slate-800">{stepData.title}</h2>
+            <Tooltip tip={stepData.helpText}>
+                <button className="p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Más información">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+            </Tooltip>
+          </div>
           <p className="text-slate-600 mt-1">
             {stepData.description.map((part, index) => {
               if (typeof part === 'string') {
@@ -192,12 +202,12 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
                 aria-label="Copiar sugerencia"
               >
                 {isCurrentResponseCopied ? (
-                  <>
+                  <span className="flex items-center gap-1.5 animate-pop-in">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Copiado</span>
-                  </>
+                  </span>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -209,6 +219,28 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
               </button>
             )}
           </div>
+            {stepData.groundingChunks && stepData.groundingChunks.length > 0 && !stepData.isLoading && (
+              <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                  <h4 className="text-sm font-semibold text-slate-600 mb-2 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9V3m0 18a9 9 0 009-9M3 12h18" />
+                      </svg>
+                      <span>Fuentes de Búsqueda</span>
+                  </h4>
+                  <ul className="space-y-1 text-sm pl-2">
+                      {stepData.groundingChunks.map((chunk, i) => (
+                          chunk.web && (
+                              <li key={i} className="text-indigo-600 hover:text-indigo-800 transition-colors">
+                                  <a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2">
+                                      <span className="text-slate-400 mt-1">&bull;</span>
+                                      <span className="underline break-all">{chunk.web.title || chunk.web.uri}</span>
+                                  </a>
+                              </li>
+                          )
+                      ))}
+                  </ul>
+              </div>
+            )}
         </div>
       </div>
 
@@ -249,12 +281,12 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
                         aria-label={`Copiar sugerencia #${stepData.aiResponseHistory.length - index}`}
                       >
                         {copiedIndex === index ? (
-                          <>
+                          <span className="flex items-center gap-1.5 animate-pop-in">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                             <span>Copiado</span>
-                          </>
+                          </span>
                         ) : (
                           <>
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -114,6 +114,22 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
                 <div className="bg-slate-50 p-4 rounded-md whitespace-pre-wrap text-slate-600 border border-slate-200">
                   {step.aiResponse ? <MarkdownRenderer text={step.aiResponse} /> : 'No se generó ninguna sugerencia.'}
                 </div>
+                 {step.groundingChunks && step.groundingChunks.length > 0 && (
+                    <div className="mt-2 p-2 bg-slate-100 border border-slate-200 rounded-md">
+                        <h5 className="text-xs font-semibold text-slate-500 mb-1">Fuentes:</h5>
+                        <ul className="space-y-1">
+                            {step.groundingChunks.map((chunk, i) => (
+                                chunk.web && (
+                                    <li key={i} className="text-xs">
+                                        <a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline break-all">
+                                            {chunk.web.title || chunk.web.uri}
+                                        </a>
+                                    </li>
+                                )
+                            ))}
+                        </ul>
+                    </div>
+                )}
               </div>
             </div>
           </div>

@@ -1,14 +1,23 @@
 export type DescriptionPart = string | { word: string; tip: string };
 
+export interface GroundingChunk {
+  web?: {
+    uri: string;
+    title: string;
+  };
+}
+
 export interface StepData {
   id: 'solve' | 'hypothesize' | 'implement' | 'persevere';
   title: string;
   description: DescriptionPart[];
+  helpText: string;
   placeholder: string;
   userInput: string;
   aiResponse: string;
   isLoading: boolean;
   aiResponseHistory: string[];
+  groundingChunks?: GroundingChunk[];
 }
 
 export interface UserProfile {
@@ -48,6 +57,7 @@ export interface AISettings {
   temperature: number;
   model: AvailableModel;
   useThinkingMode: boolean;
+  useGoogleSearch: boolean;
 }
 
 export type View = 'welcome' | 'new_project' | 'database' | 'view_archived';

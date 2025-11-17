@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
-import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus, AISettings, ProjectTemplate, InProgressProject, View } from './types';
+import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus, AISettings, ProjectTemplate, InProgressProject, View, GroundingChunk } from './types';
 import { initialStepsData } from './data/initialData';
 import { preloadedTemplates } from './data/templates';
 import StepCard from './components/IdeaInput';
@@ -112,7 +112,7 @@ const validateInput = (stepId: string, userInput: string): { isValid: boolean; m
 function useAppData() {
     const [archive, setArchive] = useState<ArchivedProject[]>([]);
     const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
-    const [aiSettings, setAiSettings] = useState<AISettings>({ temperature: 0.7, model: 'gemini-2.5-flash-lite', useThinkingMode: false });
+    const [aiSettings, setAiSettings] = useState<AISettings>({ temperature: 0.7, model: 'gemini-2.5-flash-lite', useThinkingMode: false, useGoogleSearch: false });
 
     useEffect(() => {
         try {
@@ -175,6 +175,7 @@ function useProject(onStartNewProject: () => void) {
                         ...initialStepsData.find(s => s.id === step.id)!,
                         ...step,
                         aiResponseHistory: step.aiResponseHistory || [],
+                        groundingChunks: step.groundingChunks || [],
                     })));
                     setProjectName(parsedData.projectName || '');
                     setCurrentProjectProfile(parsedData.userProfile || { name: '', company: '', email: '', phone: '' });
@@ -245,6 +246,7 @@ function useProject(onStartNewProject: () => void) {
             aiResponse: '',
             isLoading: false,
             aiResponseHistory: [],
+            groundingChunks: [],
         })));
     }, [resetProject]);
 
@@ -340,6 +342,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             ...step,
             isLoading: true,
             aiResponse: '',
+            groundingChunks: [],
             aiResponseHistory: (previousResponse && (step.aiResponseHistory[0] !== previousResponse)) ? [previousResponse, ...step.aiResponseHistory] : step.aiResponseHistory
         } : step));
 
@@ -358,15 +361,23 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             };
             const prompt = getAIPrompt(currentStepData.id, context, previousResponse);
 
-            const isThinkingMode = aiSettings.useThinkingMode;
-            const modelToUse = isThinkingMode ? 'gemini-2.5-pro' : aiSettings.model;
+            const isThinkingMode = aiSettings.useThinkingMode && !aiSettings.useGoogleSearch;
+            const useGoogleSearch = aiSettings.useGoogleSearch;
+
+            let modelToUse = isThinkingMode ? 'gemini-2.5-pro' : aiSettings.model;
+            if (useGoogleSearch) {
+                modelToUse = 'gemini-2.5-flash';
+            }
             
-            const config: { temperature: number, thinkingConfig?: { thinkingBudget: number } } = {
+            const config: any = {
                 temperature: aiSettings.temperature,
             };
 
             if (isThinkingMode) {
                 config.thinkingConfig = { thinkingBudget: 32768 };
+            }
+            if (useGoogleSearch) {
+                config.tools = [{googleSearch: {}}];
             }
 
             const responseStream = await ai.models.generateContentStream({
@@ -376,9 +387,18 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             });
 
             for await (const chunk of responseStream) {
+                const chunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
+                
                 setStepsData(prev => {
                     const newData = [...prev];
                     newData[index].aiResponse += chunk.text;
+                     if (chunks) {
+                        const existingUris = new Set((newData[index].groundingChunks || []).map(c => c.web?.uri));
+                        const newChunks = (chunks as GroundingChunk[]).filter(c => c.web && !existingUris.has(c.web.uri));
+                        if(newChunks.length > 0) {
+                             newData[index].groundingChunks = [...(newData[index].groundingChunks || []), ...newChunks];
+                        }
+                    }
                     return newData;
                 });
             }
