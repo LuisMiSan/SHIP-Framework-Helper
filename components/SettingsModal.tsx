@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AISettings, AvailableModel } from '../types';
 
@@ -58,7 +59,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
             aria-modal="true"
             aria-labelledby="settings-modal-title"
         >
-            <div className="bg-sky-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full transform transition-all">
+            <div className="bg-sky-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full transform transition-all max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                     <h2 id="settings-modal-title" className="text-2xl font-bold text-slate-100">
                         Configuración de la IA
