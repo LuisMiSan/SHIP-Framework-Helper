@@ -32,7 +32,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
     const [useThinkingMode, setUseThinkingMode] = useState(!!currentSettings.useThinkingMode);
     const [useGoogleSearch, setUseGoogleSearch] = useState(!!currentSettings.useGoogleSearch);
 
-
     // Sync state if props change while modal is open
     useEffect(() => {
         setTemperature(currentSettings.temperature);
@@ -43,6 +42,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
 
     const handleSave = () => {
         onSave({ temperature, model, useThinkingMode, useGoogleSearch });
+    };
+
+    const handleModelSelect = (selectedModel: AvailableModel) => {
+        setModel(selectedModel);
+        // If user manually selects a model, we assume they want that specific model without overrides
+        setUseThinkingMode(false);
+        setUseGoogleSearch(false);
+    };
+
+    const handleGoogleSearchChange = (checked: boolean) => {
+        setUseGoogleSearch(checked);
+        if (checked) {
+            setUseThinkingMode(false);
+        }
+    };
+
+    const handleThinkingModeChange = (checked: boolean) => {
+        setUseThinkingMode(checked);
+        if (checked) {
+            setUseGoogleSearch(false);
+        }
     };
 
     const getCreativityLabel = (value: number) => {
@@ -116,22 +136,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                     id="google-search-toggle" 
                                     className="sr-only peer"
                                     checked={useGoogleSearch}
-                                    onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        setUseGoogleSearch(checked);
-                                        if (checked) setUseThinkingMode(false);
-                                    }}
+                                    onChange={(e) => handleGoogleSearchChange(e.target.checked)}
                                 />
                                 <div className="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                             </label>
                         </div>
                         <p className="mt-2 text-sm text-slate-400">
                            Permite a la IA usar Google Search para obtener información actualizada y relevante para sus sugerencias.
+                           {useThinkingMode && <span className="text-orange-300 block mt-1 text-xs">⚠️ Al activar esto se desactivará el Modo de Pensamiento Profundo.</span>}
                         </p>
                     </div>
 
                      <div className="border-t border-sky-700 pt-8">
-                        <div className={`flex justify-between items-center ${useGoogleSearch ? 'opacity-50' : ''}`}>
+                        <div className="flex justify-between items-center">
                             <label className="font-medium text-slate-200">
                                 Modo de Pensamiento Profundo
                             </label>
@@ -141,19 +158,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                     id="thinking-mode-toggle" 
                                     className="sr-only peer"
                                     checked={useThinkingMode}
-                                    disabled={useGoogleSearch}
-                                    onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        setUseThinkingMode(checked);
-                                        if (checked) setUseGoogleSearch(false);
-                                    }}
+                                    onChange={(e) => handleThinkingModeChange(e.target.checked)}
                                 />
                                 <div className="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                             </label>
                         </div>
                         <p className="mt-2 text-sm text-slate-400">
-                           Activa esta opción para que la IA utilice <span className="font-semibold text-slate-300">Gemini 2.5 Pro</span> con su máxima capacidad de razonamiento. Ideal para problemas complejos, aunque puede ser más lento.
-                           {useGoogleSearch && <span className="font-medium"> (No disponible con Búsqueda en Google)</span>}
+                           Activa esta opción para que la IA utilice <span className="font-semibold text-slate-300">Gemini 2.5 Pro</span> con su máxima capacidad de razonamiento. Ideal para problemas complejos.
+                           {useGoogleSearch && <span className="text-orange-300 block mt-1 text-xs">⚠️ Al activar esto se desactivará la Búsqueda en Google.</span>}
                         </p>
                     </div>
 
@@ -161,16 +173,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                         <label className="block font-medium text-slate-200 mb-3">
                             Modelo de IA
                         </label>
-                        <div className={`space-y-4 ${useThinkingMode || useGoogleSearch ? 'opacity-50' : ''}`}>
+                        <div className="space-y-4">
                             {modelOptions.map((option) => (
                                 <div
                                     key={option.id}
-                                    onClick={() => !(useThinkingMode || useGoogleSearch) && setModel(option.id)}
-                                    className={`p-4 border rounded-lg transition-all ${(useThinkingMode || useGoogleSearch) ? 'cursor-not-allowed' : 'cursor-pointer'} ${
-                                        model === option.id && !(useThinkingMode || useGoogleSearch)
+                                    onClick={() => handleModelSelect(option.id)}
+                                    className={`p-4 border rounded-lg transition-all cursor-pointer ${
+                                        model === option.id && !useThinkingMode && !useGoogleSearch
                                             ? 'bg-orange-500/10 border-orange-500 ring-2 ring-orange-500'
                                             : 'bg-sky-700 border-sky-600 hover:border-sky-500'
-                                    }`}
+                                    } ${(useThinkingMode || useGoogleSearch) ? 'opacity-60' : ''}`}
                                 >
                                     <div className="flex items-center">
                                         <input
@@ -178,13 +190,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                             id={option.id}
                                             name="model"
                                             value={option.id}
-                                            checked={model === option.id}
-                                            onChange={() => setModel(option.id)}
-                                            disabled={useThinkingMode || useGoogleSearch}
+                                            checked={model === option.id && !useThinkingMode && !useGoogleSearch}
+                                            onChange={() => handleModelSelect(option.id)}
                                             className="h-4 w-4 text-orange-500 border-slate-500 focus:ring-orange-500"
                                         />
                                         <div className="ml-3">
-                                            <label htmlFor={option.id} className={`block text-sm font-bold text-slate-100 ${(useThinkingMode || useGoogleSearch) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                            <label htmlFor={option.id} className="block text-sm font-bold text-slate-100 cursor-pointer">
                                                 {option.name}
                                             </label>
                                             <p className="text-sm text-slate-400">{option.description}</p>
@@ -195,9 +206,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                         </div>
                          <p className="mt-2 text-sm text-slate-400">
                             {useThinkingMode 
-                                ? 'El Modo de Pensamiento Profundo anula esta selección para usar Gemini 2.5 Pro.' 
+                                ? 'El Modo de Pensamiento Profundo anula esta selección para usar Gemini 2.5 Pro. Selecciona un modelo para desactivarlo.' 
                                 : useGoogleSearch
-                                ? 'La Búsqueda en Google anula esta selección para usar Gemini Flash.'
+                                ? 'La Búsqueda en Google anula esta selección para usar Gemini Flash. Selecciona un modelo para desactivarla.'
                                 : 'Pro puede ofrecer respuestas de mayor calidad pero es más lento. Flash es mejor para iteraciones rápidas.'}
                         </p>
                     </div>
