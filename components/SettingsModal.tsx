@@ -35,7 +35,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
     // Sync state if props change while modal is open
     useEffect(() => {
         setTemperature(currentSettings.temperature);
-        setModel(currentSettings.model || 'gemini-2.5-flash-lite');
+        let initialModel = currentSettings.model || 'gemini-2.5-flash-lite';
+        
+        // Align visual model with active modes based on App logic
+        if (currentSettings.useThinkingMode) {
+             initialModel = 'gemini-2.5-pro';
+        } else if (currentSettings.useGoogleSearch) {
+             initialModel = 'gemini-2.5-flash';
+        }
+        
+        setModel(initialModel);
         setUseThinkingMode(!!currentSettings.useThinkingMode);
         setUseGoogleSearch(!!currentSettings.useGoogleSearch);
     }, [currentSettings]);
@@ -55,6 +64,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
         setUseGoogleSearch(checked);
         if (checked) {
             setUseThinkingMode(false);
+            setModel('gemini-2.5-flash'); // Default to Flash for search
         }
     };
 
@@ -62,6 +72,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
         setUseThinkingMode(checked);
         if (checked) {
             setUseGoogleSearch(false);
+            setModel('gemini-2.5-pro'); // Default to Pro for thinking
         }
     };
 
@@ -143,7 +154,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                         </div>
                         <p className="mt-2 text-sm text-slate-400">
                            Permite a la IA usar Google Search para obtener información actualizada y relevante para sus sugerencias.
-                           {useThinkingMode && <span className="text-orange-300 block mt-1 text-xs">⚠️ Al activar esto se desactivará el Modo de Pensamiento Profundo.</span>}
+                           {useThinkingMode && <span className="text-orange-300 block mt-1 text-xs">ℹ️ Al activar esto se ha desactivado el Modo de Pensamiento Profundo.</span>}
                         </p>
                     </div>
 
@@ -165,7 +176,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                         </div>
                         <p className="mt-2 text-sm text-slate-400">
                            Activa esta opción para que la IA utilice <span className="font-semibold text-slate-300">Gemini 2.5 Pro</span> con su máxima capacidad de razonamiento. Ideal para problemas complejos.
-                           {useGoogleSearch && <span className="text-orange-300 block mt-1 text-xs">⚠️ Al activar esto se desactivará la Búsqueda en Google.</span>}
+                           {useGoogleSearch && <span className="text-orange-300 block mt-1 text-xs">ℹ️ Al activar esto se ha desactivado la Búsqueda en Google.</span>}
                         </p>
                     </div>
 
@@ -179,10 +190,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                     key={option.id}
                                     onClick={() => handleModelSelect(option.id)}
                                     className={`p-4 border rounded-lg transition-all cursor-pointer ${
-                                        model === option.id && !useThinkingMode && !useGoogleSearch
+                                        model === option.id
                                             ? 'bg-orange-500/10 border-orange-500 ring-2 ring-orange-500'
                                             : 'bg-sky-700 border-sky-600 hover:border-sky-500'
-                                    } ${(useThinkingMode || useGoogleSearch) ? 'opacity-60' : ''}`}
+                                    }`}
                                 >
                                     <div className="flex items-center">
                                         <input
@@ -190,7 +201,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                                             id={option.id}
                                             name="model"
                                             value={option.id}
-                                            checked={model === option.id && !useThinkingMode && !useGoogleSearch}
+                                            checked={model === option.id}
                                             onChange={() => handleModelSelect(option.id)}
                                             className="h-4 w-4 text-orange-500 border-slate-500 focus:ring-orange-500"
                                         />
@@ -206,9 +217,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, 
                         </div>
                          <p className="mt-2 text-sm text-slate-400">
                             {useThinkingMode 
-                                ? 'El Modo de Pensamiento Profundo anula esta selección para usar Gemini 2.5 Pro. Selecciona un modelo para desactivarlo.' 
+                                ? 'El Modo de Pensamiento Profundo utiliza Gemini 2.5 Pro. Selecciona otro modelo si deseas desactivar este modo.' 
                                 : useGoogleSearch
-                                ? 'La Búsqueda en Google anula esta selección para usar Gemini Flash. Selecciona un modelo para desactivarla.'
+                                ? 'La Búsqueda en Google utiliza Gemini Flash. Selecciona otro modelo si deseas desactivar este modo.'
                                 : 'Pro puede ofrecer respuestas de mayor calidad pero es más lento. Flash es mejor para iteraciones rápidas.'}
                         </p>
                     </div>
