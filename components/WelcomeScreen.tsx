@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { ArchivedProject, ProjectStatus, ProjectTemplate } from '../types';
 
 interface WelcomeScreenProps {
@@ -10,11 +11,25 @@ interface WelcomeScreenProps {
 }
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, templates, onStartFromTemplate, onDeleteTemplate, onNavigateToDatabase }) => {
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  
+  // Select the first template by default if available
+  useEffect(() => {
+    if (templates.length > 0 && !selectedTemplateId) {
+        setSelectedTemplateId(templates[0].id);
+    }
+  }, [templates, selectedTemplateId]);
+
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
   const hasTemplates = templates.length > 0;
 
   const handleDeleteTemplate = (templateId: string, templateName: string) => {
     if (window.confirm(`¿Estás seguro de que quieres eliminar la plantilla "${templateName}"? Esta acción no se puede deshacer.`)) {
         onDeleteTemplate(templateId);
+        // Reset selection if the deleted one was selected
+        if (selectedTemplateId === templateId) {
+            setSelectedTemplateId(templates.length > 1 ? templates.find(t => t.id !== templateId)?.id || '' : '');
+        }
     }
   };
 
@@ -43,37 +58,69 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, templates, on
         </div>
 
         {hasTemplates && (
-            <div className="mt-16 text-left w-full max-w-5xl mx-auto">
-                <h2 className="text-3xl font-bold text-slate-100 mb-6 text-center">Plantillas</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {templates.map(template => (
-                        <div key={template.id} className="bg-sky-800 p-4 rounded-lg border border-sky-700 flex flex-col justify-between items-start gap-3 hover:border-orange-500 transition-colors shadow-sm">
-                            <div>
-                                <h3 className="text-lg font-semibold text-sky-300">{template.name}</h3>
-                                <p className="text-xs text-slate-400">
-                                    Creado el: {new Date(template.createdAt).toLocaleDateString('es-ES')}
-                                </p>
-                            </div>
-                            <div className="flex gap-2 self-end w-full">
-                                <button
-                                    onClick={() => onStartFromTemplate(template)}
-                                    className="flex-grow px-3 py-2 bg-sky-600 text-white font-semibold rounded-md hover:bg-sky-700 transition-colors text-sm"
-                                >
-                                    Usar Plantilla
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteTemplate(template.id, template.name)}
-                                    className="px-3 py-2 bg-slate-600 text-slate-200 font-semibold rounded-md hover:bg-slate-500 transition-colors text-sm"
-                                    aria-label={`Eliminar plantilla ${template.name}`}
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="mt-16 text-left w-full max-w-3xl mx-auto bg-sky-800/50 p-6 rounded-xl border border-sky-700">
+                <h2 className="text-2xl font-bold text-slate-100 mb-4 text-center">Usar una Plantilla</h2>
+                
+                <div className="mb-6">
+                    <label htmlFor="template-select" className="block text-sm font-medium text-slate-300 mb-2">Selecciona un nicho o tipo de negocio:</label>
+                    <div className="relative">
+                        <select
+                            id="template-select"
+                            value={selectedTemplateId}
+                            onChange={(e) => setSelectedTemplateId(e.target.value)}
+                            className="block w-full pl-4 pr-10 py-3 text-base bg-sky-900 border border-sky-600 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm rounded-md text-slate-100 appearance-none cursor-pointer"
+                        >
+                            {templates.map((template) => (
+                                <option key={template.id} value={template.id}>
+                                    {template.name}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                {selectedTemplate && (
+                    <div className="bg-sky-900 p-5 rounded-lg border border-sky-700 animate-fade-in-up">
+                        <div className="flex justify-between items-start gap-4 mb-3">
+                            <h3 className="text-xl font-bold text-sky-300">{selectedTemplate.name}</h3>
+                            <button
+                                onClick={() => handleDeleteTemplate(selectedTemplate.id, selectedTemplate.name)}
+                                className="text-slate-500 hover:text-red-400 transition-colors p-1"
+                                title="Eliminar plantilla"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-3 mb-6">
+                            <div>
+                                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Problema</span>
+                                <p className="text-sm text-slate-300 line-clamp-2">{selectedTemplate.data[0].userInput}</p>
+                            </div>
+                            <div>
+                                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Hipótesis</span>
+                                <p className="text-sm text-slate-300 line-clamp-2">{selectedTemplate.data[1].userInput}</p>
                             </div>
                         </div>
-                    ))}
-                </div>
+
+                        <button
+                            onClick={() => onStartFromTemplate(selectedTemplate)}
+                            className="w-full py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-500 transition-all transform hover:scale-[1.02] shadow-md flex items-center justify-center gap-2"
+                        >
+                            <span>Cargar esta Plantilla</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
             </div>
         )}
       </div>

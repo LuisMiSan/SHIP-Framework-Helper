@@ -73,6 +73,7 @@ const StepIcon: React.FC<{ stepId: StepData['id'] }> = ({ stepId }) => {
 const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHelp, validationError, onRestoreAIResponse, onDictate, onTranscribeAudio, onPlaySpeech, isSpeechPlaying }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isCurrentResponseCopied, setIsCurrentResponseCopied] = useState(false);
+  const [isUserInputCopied, setIsUserInputCopied] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
 
   const handleCopy = (textToCopy: string, index: number) => {
@@ -89,6 +90,16 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
     navigator.clipboard.writeText(stepData.aiResponse).then(() => {
       setIsCurrentResponseCopied(true);
       setTimeout(() => setIsCurrentResponseCopied(false), 2000); // Reset after 2 seconds
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+    });
+  };
+
+  const handleCopyUserInput = () => {
+    if (!stepData.userInput) return;
+    navigator.clipboard.writeText(stepData.userInput).then(() => {
+      setIsUserInputCopied(true);
+      setTimeout(() => setIsUserInputCopied(false), 2000); // Reset after 2 seconds
     }).catch(err => {
       console.error('Failed to copy text: ', err);
     });
@@ -159,6 +170,28 @@ const StepCard: React.FC<StepCardProps> = ({ stepData, onInputChange, onGetAIHel
               aria-invalid={!!validationError}
               aria-describedby={validationError ? "user-input-error" : undefined}
             />
+            {stepData.userInput && (
+                <button
+                onClick={handleCopyUserInput}
+                className={`absolute top-2 right-2 p-1.5 rounded-md transition-all duration-200 ${
+                  isUserInputCopied
+                    ? 'bg-green-600 text-white'
+                    : 'bg-sky-800/80 text-slate-400 hover:bg-sky-700 hover:text-slate-200'
+                }`}
+                title="Copiar texto"
+                aria-label="Copiar borrador"
+              >
+                {isUserInputCopied ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            )}
             <DictationButton onDictate={onDictate} disabled={stepData.isLoading || isTranscribing} className="bottom-3 right-3" />
           </div>
            {validationError && (
