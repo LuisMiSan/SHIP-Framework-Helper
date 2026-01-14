@@ -1,3 +1,4 @@
+
 export type DescriptionPart = string | { word: string; tip: string };
 
 export interface GroundingChunk {
@@ -60,7 +61,7 @@ export interface AISettings {
   useGoogleSearch: boolean;
 }
 
-export type View = 'welcome' | 'new_project' | 'database' | 'view_archived';
+export type View = 'welcome' | 'new_project' | 'database' | 'view_archived' | 'admin';
 
 export type VoiceCommand =
   | 'NEXT_STEP'

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus, AISettings, ProjectTemplate, InProgressProject, View, GroundingChunk } from './types';
@@ -14,6 +13,7 @@ import VoiceControl from './components/VoiceControl';
 import ProjectInfoForm from './components/ProjectInfoForm';
 import SettingsModal from './components/SettingsModal';
 import SaveTemplateModal from './components/SaveTemplateModal';
+import AdminPanel from './components/AdminPanel';
 
 // =================================================================
 // AUDIO HELPER FUNCTIONS
@@ -147,6 +147,35 @@ function useAppData() {
         localStorage.setItem('ship-framework-settings', JSON.stringify(newSettings));
     }, []);
 
+    const exportDatabase = useCallback(() => {
+        const data = {
+            archive,
+            templates,
+            settings: aiSettings,
+            exportDate: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SHIP_Framework_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }, [archive, templates, aiSettings]);
+
+    const importDatabase = useCallback((jsonString: string) => {
+        try {
+            const data = JSON.parse(jsonString);
+            if (data.archive) updateAndSaveArchive(data.archive);
+            if (data.templates) updateAndSaveTemplates(data.templates);
+            if (data.settings) handleSaveSettings(data.settings);
+            return true;
+        } catch (e) {
+            console.error("Import failed", e);
+            return false;
+        }
+    }, [updateAndSaveArchive, updateAndSaveTemplates, handleSaveSettings]);
+
     return {
         archive,
         templates,
@@ -154,6 +183,8 @@ function useAppData() {
         updateAndSaveArchive,
         updateAndSaveTemplates,
         handleSaveSettings,
+        exportDatabase,
+        importDatabase
     };
 }
 
@@ -250,6 +281,20 @@ function useProject(onStartNewProject: () => void) {
         })));
     }, [resetProject]);
 
+    const loadArchivedProject = useCallback((archived: ArchivedProject) => {
+        resetProject();
+        setStepsData(archived.data.map(step => ({
+             ...initialStepsData.find(s => s.id === step.id)!,
+             ...step,
+             // Ensure legacy data has correct structure
+             aiResponseHistory: step.aiResponseHistory || [],
+             groundingChunks: step.groundingChunks || [],
+        })));
+        setProjectName(archived.name);
+        setCurrentProjectProfile(archived.userProfile);
+        setIsProjectSaved(true); // Initially saved, but changes will trigger autosave state
+    }, [resetProject]);
+
     return {
         stepsData, setStepsData,
         projectName, setProjectName,
@@ -262,6 +307,7 @@ function useProject(onStartNewProject: () => void) {
         handleRestoreAIResponse,
         resetProject,
         startFromTemplate,
+        loadArchivedProject
     };
 }
 
@@ -364,9 +410,9 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             const isThinkingMode = aiSettings.useThinkingMode && !aiSettings.useGoogleSearch;
             const useGoogleSearch = aiSettings.useGoogleSearch;
 
-            let modelToUse = isThinkingMode ? 'gemini-2.5-pro' : aiSettings.model;
+            let modelToUse = isThinkingMode ? 'gemini-3-pro-preview' : aiSettings.model;
             if (useGoogleSearch) {
-                modelToUse = 'gemini-2.5-flash';
+                modelToUse = 'gemini-3-flash-preview';
             }
             
             const config: any = {
@@ -446,7 +492,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
     
             const ai = new GoogleGenAI({ apiKey });
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 contents: {
                     parts: [
                         { inlineData: { mimeType: blob.type, data: base64Audio } },
@@ -585,7 +631,7 @@ const App: React.FC = () => {
   const [speechState, setSpeechState] = useState<{ playing: boolean, forStep: string | null }>({ playing: false, forStep: null });
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
-  const { archive, templates, aiSettings, updateAndSaveArchive, updateAndSaveTemplates, handleSaveSettings } = useAppData();
+  const { archive, templates, aiSettings, updateAndSaveArchive, updateAndSaveTemplates, handleSaveSettings, exportDatabase, importDatabase } = useAppData();
   const project = useProject(() => setView('new_project'));
   const autoSaveStatus = useAutoSave({ stepsData: project.stepsData, projectName: project.projectName, currentProjectProfile: project.currentProjectProfile });
   
@@ -597,13 +643,34 @@ const App: React.FC = () => {
     if (!process.env.API_KEY) {
       setApiKeyStatus('missing');
     } else {
-        if(project.loadInProgressProject()) {
+        const savedView = localStorage.getItem('ship-framework-last-view') as View;
+        // Priority check for in-progress project data loading
+        const hasInProgress = project.loadInProgressProject();
+
+        if (savedView === 'database' || savedView === 'admin') {
+            setView(savedView);
+        } else if (savedView === 'new_project' && hasInProgress) {
             setView('new_project');
-        } else {
+        } else if (savedView === 'welcome') {
             setView('welcome');
+        } else {
+            // Default behavior if no saved view or invalid state
+            if(hasInProgress) {
+                setView('new_project');
+            } else {
+                setView('welcome');
+            }
         }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+      // Save the last viewed section for persistence, but ignore transient views like 'view_archived'
+      // because they depend on transient state (selectedArchivedProject).
+      if (view && view !== 'view_archived') {
+          localStorage.setItem('ship-framework-last-view', view);
+      }
+  }, [view]);
 
   const hasUnsavedChanges = useCallback(() => {
       if (project.isProjectSaved) return false;
@@ -732,12 +799,16 @@ const App: React.FC = () => {
     setView('new_project');
   }, [project]);
 
+  // Handler for loading a project from Admin to Workspace ("Remodelar")
+  const handleLoadProjectToWorkspace = useCallback((archivedProject: ArchivedProject) => {
+    project.loadArchivedProject(archivedProject);
+    setView('new_project');
+  }, [project]);
+
   // Voice command handling can remain here as it controls top-level view state
   const handleVoiceCommand = (command: VoiceCommand, value?: string) => {
     // This function can be implemented similarly to the original, but would now
     // call functions from the project hook or setView directly.
-    // For brevity in this refactor, the detailed implementation is omitted,
-    // but it would follow this pattern:
     switch (command) {
         case 'START_NEW':
             if (view === 'welcome') attemptNavigation(project.resetProject);
@@ -746,8 +817,7 @@ const App: React.FC = () => {
             attemptNavigation(() => setView('database'));
             break;
         case 'GO_BACK':
-            if (view === 'view_archived' || view === 'database') setView('welcome');
-            // Additional logic for going back from summary would be needed
+            if (view === 'view_archived' || view === 'database' || view === 'admin') setView('welcome');
             break;
         // ... etc.
     }
@@ -774,6 +844,8 @@ const App: React.FC = () => {
           onDeleteProject={handleDeleteProject}
           onUpdateProjectStatus={handleUpdateProjectStatus}
           onBack={() => setView('welcome')}
+          onExport={exportDatabase}
+          onImport={importDatabase}
         />;
       case 'view_archived':
         return selectedArchivedProject && <SummaryDisplay
@@ -796,6 +868,17 @@ const App: React.FC = () => {
             onPlaySpeech={(text, stepId) => handlePlaySpeech(text, stepId)}
             speechPlayingForStep={speechState.forStep}
         />;
+      case 'admin':
+        return <AdminPanel
+            archive={archive}
+            templates={templates}
+            onUpdateArchive={updateAndSaveArchive}
+            onUpdateTemplates={updateAndSaveTemplates}
+            onLoadProjectToWorkspace={(p) => attemptNavigation(() => handleLoadProjectToWorkspace(p))}
+            onExport={exportDatabase}
+            onImport={importDatabase}
+            onClose={() => setView('welcome')}
+        />
       default:
         return <div>Error: Vista desconocida</div>;
     }
@@ -850,6 +933,11 @@ const App: React.FC = () => {
                       {autoSaveStatus === 'saved' && <>✔️ Guardado</>}
                   </div>
               )}
+               <button onClick={() => attemptNavigation(() => setView('admin'))} className="p-2 rounded-full hover:bg-sky-800 transition-colors" aria-label="Abrir panel admin">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+               </button>
                <button onClick={() => attemptNavigation(() => setView('database'))} className="p-2 rounded-full hover:bg-sky-800 transition-colors" aria-label="Abrir base de datos de proyectos">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -869,7 +957,7 @@ const App: React.FC = () => {
       <VoiceControl
         onCommand={handleVoiceCommand}
         view={view}
-        showSummary={false} // This needs to be wired up correctly if voice commands should depend on it
+        showSummary={false} 
         isProjectSaveable={!project.isProjectSaved && isSaveable}
       />
     </main>
