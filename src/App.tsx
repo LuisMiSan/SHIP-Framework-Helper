@@ -1,9 +1,24 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
-import { StepData, ArchivedProject, VoiceCommand, UserProfile, ProjectStatus, AISettings, ProjectTemplate, InProgressProject, View, GroundingChunk } from './types';
-import { initialStepsData } from './data/initialData';
-import { preloadedTemplates } from './data/templates';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { 
+    StepData, 
+    ArchivedProject, 
+    VoiceCommand, 
+    UserProfile, 
+    ProjectStatus, 
+    AISettings, 
+    ProjectTemplate, 
+    View, 
+    GroundingChunk 
+} from './types';
+import { auth, db } from './lib/firebase';
+import { firestoreService } from './lib/firestoreService';
+import { useAppData } from './hooks/useAppData';
+import { useProject } from './hooks/useProject';
+import { useAutoSave } from './hooks/useAutoSave';
+
 import StepCard from './components/IdeaInput';
 import SummaryDisplay from './components/ArchitectureDisplay';
 import WelcomeScreen from './components/WelcomeScreen';
@@ -13,6 +28,10 @@ import ProjectInfoForm from './components/ProjectInfoForm';
 import SettingsModal from './components/SettingsModal';
 import SaveTemplateModal from './components/SaveTemplateModal';
 import AdminPanel from './components/AdminPanel';
+import LoginOverlay from './components/LoginOverlay';
+import LoadingSpinner from './components/LoadingSpinner';
+
+import { LogOut, User as UserIcon, Settings, Database, RotateCcw } from 'lucide-react';
 
 // =================================================================
 // AUDIO HELPER FUNCTIONS
@@ -46,7 +65,6 @@ async function decodeAudioData(
   }
   return buffer;
 }
-
 
 // =================================================================
 // HELPER FUNCTIONS
@@ -105,250 +123,6 @@ const validateInput = (stepId: string, userInput: string): { isValid: boolean; m
 };
 
 // =================================================================
-// CUSTOM HOOKS
-// =================================================================
-
-function useAppData() {
-    const [archive, setArchive] = useState<ArchivedProject[]>([]);
-    const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
-    const [aiSettings, setAiSettings] = useState<AISettings>({ temperature: 0.7, model: 'gemini-3.1-flash-lite-preview', useThinkingMode: false, useGoogleSearch: false });
-
-    useEffect(() => {
-        try {
-            const savedSettings = localStorage.getItem('ship-framework-settings');
-            if (savedSettings) {
-                const parsed = JSON.parse(savedSettings);
-                setAiSettings(currentSettings => ({ ...currentSettings, ...parsed }));
-            }
-
-            const savedArchive = localStorage.getItem('ship-framework-archive');
-            if (savedArchive) setArchive(JSON.parse(savedArchive));
-            
-            const savedTemplates = localStorage.getItem('ship-framework-templates');
-            setTemplates(savedTemplates ? JSON.parse(savedTemplates) : preloadedTemplates);
-        } catch (error) {
-            console.error("Failed to load data from localStorage", error);
-        }
-    }, []);
-
-    const updateAndSaveArchive = useCallback((newArchive: ArchivedProject[]) => {
-        setArchive(newArchive);
-        localStorage.setItem('ship-framework-archive', JSON.stringify(newArchive));
-    }, []);
-
-    const updateAndSaveTemplates = useCallback((newTemplates: ProjectTemplate[]) => {
-        setTemplates(newTemplates);
-        localStorage.setItem('ship-framework-templates', JSON.stringify(newTemplates));
-    }, []);
-
-    const handleSaveSettings = useCallback((newSettings: AISettings) => {
-        setAiSettings(newSettings);
-        localStorage.setItem('ship-framework-settings', JSON.stringify(newSettings));
-    }, []);
-
-    const exportDatabase = useCallback(() => {
-        const data = {
-            archive,
-            templates,
-            settings: aiSettings,
-            exportDate: new Date().toISOString()
-        };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `SHIP_Framework_Backup_${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }, [archive, templates, aiSettings]);
-
-    const importDatabase = useCallback((jsonString: string) => {
-        try {
-            const data = JSON.parse(jsonString);
-            if (data.archive) updateAndSaveArchive(data.archive);
-            if (data.templates) updateAndSaveTemplates(data.templates);
-            if (data.settings) handleSaveSettings(data.settings);
-            return true;
-        } catch (e) {
-            console.error("Import failed", e);
-            return false;
-        }
-    }, [updateAndSaveArchive, updateAndSaveTemplates, handleSaveSettings]);
-
-    return {
-        archive,
-        templates,
-        aiSettings,
-        updateAndSaveArchive,
-        updateAndSaveTemplates,
-        handleSaveSettings,
-        exportDatabase,
-        importDatabase
-    };
-}
-
-
-function useProject(onStartNewProject: () => void) {
-    const [stepsData, setStepsData] = useState<StepData[]>(initialStepsData);
-    const [projectName, setProjectName] = useState<string>('');
-    const [currentProjectProfile, setCurrentProjectProfile] = useState<UserProfile>({ name: '', company: '', email: '', phone: '' });
-    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-    const [isProjectSaved, setIsProjectSaved] = useState(false);
-
-    const loadInProgressProject = useCallback(() => {
-        try {
-            const savedData = localStorage.getItem('ship-framework-data');
-            if (savedData) {
-                const parsedData: InProgressProject = JSON.parse(savedData);
-                if (parsedData?.stepsData?.length === initialStepsData.length) {
-                    setStepsData(parsedData.stepsData.map(step => ({
-                        ...initialStepsData.find(s => s.id === step.id)!,
-                        ...step,
-                        aiResponseHistory: step.aiResponseHistory || [],
-                        groundingChunks: step.groundingChunks || [],
-                    })));
-                    setProjectName(parsedData.projectName || '');
-                    setCurrentProjectProfile(parsedData.userProfile || { name: '', company: '', email: '', phone: '' });
-                    setIsProjectSaved(false);
-                    return true;
-                }
-            }
-        } catch (error) {
-            console.error("Failed to load in-progress project", error);
-        }
-        return false;
-    }, []);
-
-    const handleInputChange = useCallback((index: number, value: string) => {
-        setValidationErrors({});
-        setStepsData(prev => {
-            const newSteps = [...prev];
-            newSteps[index].userInput = value;
-            return newSteps;
-        });
-    }, []);
-
-    const handleDictation = useCallback((index: number, text: string) => {
-        setStepsData(prev => {
-            const newSteps = [...prev];
-            const currentInput = newSteps[index].userInput;
-            const separator = currentInput.trim() && text ? ' ' : '';
-            newSteps[index].userInput = currentInput + separator + text;
-            return newSteps;
-        });
-    }, []);
-    
-    const handleRestoreAIResponse = useCallback((index: number, responseToRestore: string) => {
-        setStepsData(prevData => {
-            const newData = [...prevData];
-            const stepToUpdate = newData[index];
-            const oldResponse = stepToUpdate.aiResponse;
-
-            stepToUpdate.aiResponse = responseToRestore;
-
-            if (oldResponse && oldResponse !== responseToRestore) {
-                stepToUpdate.aiResponseHistory = [
-                    oldResponse,
-                    ...stepToUpdate.aiResponseHistory.filter(h => h !== responseToRestore)
-                ];
-            } else {
-                stepToUpdate.aiResponseHistory = stepToUpdate.aiResponseHistory.filter(h => h !== responseToRestore);
-            }
-            return newData;
-        });
-    }, []);
-
-    const resetProject = useCallback(() => {
-        localStorage.removeItem('ship-framework-data');
-        setStepsData(initialStepsData);
-        setProjectName('');
-        setCurrentProjectProfile({ name: '', company: '', email: '', phone: '' });
-        setValidationErrors({});
-        setIsProjectSaved(false);
-        onStartNewProject();
-    }, [onStartNewProject]);
-
-    const startFromTemplate = useCallback((template: ProjectTemplate) => {
-        resetProject();
-        setStepsData(template.data.map(step => ({
-            ...initialStepsData.find(s => s.id === step.id)!,
-            userInput: step.userInput || '',
-            aiResponse: '',
-            isLoading: false,
-            aiResponseHistory: [],
-            groundingChunks: [],
-        })));
-    }, [resetProject]);
-
-    const loadArchivedProject = useCallback((archived: ArchivedProject) => {
-        resetProject();
-        setStepsData(archived.data.map(step => ({
-             ...initialStepsData.find(s => s.id === step.id)!,
-             ...step,
-             // Ensure legacy data has correct structure
-             aiResponseHistory: step.aiResponseHistory || [],
-             groundingChunks: step.groundingChunks || [],
-        })));
-        setProjectName(archived.name);
-        setCurrentProjectProfile(archived.userProfile);
-        setIsProjectSaved(true); // Initially saved, but changes will trigger autosave state
-    }, [resetProject]);
-
-    return {
-        stepsData, setStepsData,
-        projectName, setProjectName,
-        currentProjectProfile, setCurrentProjectProfile,
-        validationErrors, setValidationErrors,
-        isProjectSaved, setIsProjectSaved,
-        loadInProgressProject,
-        handleInputChange,
-        handleDictation,
-        handleRestoreAIResponse,
-        resetProject,
-        startFromTemplate,
-        loadArchivedProject
-    };
-}
-
-
-function useAutoSave(projectState: { stepsData: StepData[], projectName: string, currentProjectProfile: UserProfile }) {
-    const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-    const latestStateRef = useRef(projectState);
-
-    useEffect(() => {
-        latestStateRef.current = projectState;
-    }, [projectState]);
-
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            const { stepsData, projectName, currentProjectProfile } = latestStateRef.current;
-            const isPristine = stepsData.every(step => !step.userInput.trim() && !step.aiResponse.trim()) && !projectName.trim() && !currentProjectProfile.name.trim();
-
-            if (isPristine) return;
-
-            setAutoSaveStatus('saving');
-            try {
-                const inProgressData: InProgressProject = {
-                    projectName,
-                    userProfile: currentProjectProfile,
-                    stepsData,
-                };
-                localStorage.setItem('ship-framework-data', JSON.stringify(inProgressData));
-                setTimeout(() => setAutoSaveStatus('saved'), 500);
-                setTimeout(() => setAutoSaveStatus('idle'), 3000);
-            } catch (error) {
-                console.error("Failed to auto-save", error);
-                setAutoSaveStatus('idle');
-            }
-        }, 90000);
-
-        return () => clearInterval(intervalId);
-    }, []);
-
-    return autoSaveStatus;
-}
-
-// =================================================================
 // SUB-COMPONENTS
 // =================================================================
 
@@ -367,7 +141,6 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
     const [apiError, setApiError] = useState<string | null>(null);
 
     const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const lastScrolledStepIndex = useRef<number>(0);
 
     const handleGetAIHelp = useCallback(async (index: number) => {
         const currentStepData = stepsData[index];
@@ -393,7 +166,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
         try {
             const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
-                throw new Error("API key not found.");
+                throw new Error("Clave de API no disponible en el servidor.");
             }
             const ai = new GoogleGenAI({ apiKey });
             const context = {
@@ -447,12 +220,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             }
         } catch (err) {
             console.error("Error getting AI help:", err);
-            let detailedError = "Ocurrió un error inesperado.";
-
-            if (err instanceof Error) {
-                detailedError = err.message;
-            }
-            setApiError(`No pude contactar a la IA. Por favor, inténtalo de nuevo más tarde. (Detalle: ${detailedError})`);
+            setApiError(`No pude contactar a la IA. (Detalle: ${err instanceof Error ? err.message : 'Error desconocido'})`);
         } finally {
             setStepsData(prev => prev.map((step, i) => i === index ? { ...step, isLoading: false } : step));
         }
@@ -461,9 +229,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
     const handleTranscribeAudio = useCallback(async (index: number, blob: Blob) => {
         try {
             const apiKey = process.env.GEMINI_API_KEY;
-            if (!apiKey) {
-                throw new Error("API key not found.");
-            }
+            if (!apiKey) throw new Error("Clave de API no disponible.");
 
             const base64Audio = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
@@ -495,7 +261,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             setApiError('No se pudo transcribir el audio. Por favor, inténtalo de nuevo.');
         }
 
-    }, [project, setApiKeyStatus]);
+    }, [project]);
 
     const handleShowSummary = () => {
         const newErrors: Record<string, string> = {};
@@ -570,7 +336,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             <div className="my-8 h-px bg-slate-700" />
 
             {stepsData.map((step, index) => (
-                <div key={step.id} ref={el => stepRefs.current[index] = el} className="mb-8 scroll-mt-24">
+                <div key={step.id} ref={el => { stepRefs.current[index] = el; }} className="mb-8 scroll-mt-24">
                     <StepCard
                         stepData={step}
                         onInputChange={(value) => project.handleInputChange(index, value)}
@@ -607,6 +373,9 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
 // =================================================================
 
 const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  
   const [view, setView] = useState<View>('welcome');
   const [selectedArchivedProject, setSelectedArchivedProject] = useState<ArchivedProject | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -615,54 +384,46 @@ const App: React.FC = () => {
   const [speechState, setSpeechState] = useState<{ playing: boolean, forStep: string | null }>({ playing: false, forStep: null });
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
-  const { archive, templates, aiSettings, updateAndSaveArchive, updateAndSaveTemplates, handleSaveSettings, exportDatabase, importDatabase } = useAppData();
+  const { archive, templates, aiSettings, isLoading: isDataLoading, handleSaveSettings, exportDatabase, importDatabase } = useAppData();
   const project = useProject(() => setView('new_project'));
   const autoSaveStatus = useAutoSave({ stepsData: project.stepsData, projectName: project.projectName, currentProjectProfile: project.currentProjectProfile });
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
+  // Auth Listener
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsAuthReady(true);
+      
+      if (user) {
+          const savedView = localStorage.getItem('ship-framework-last-view') as View;
+          const hasInProgress = project.loadInProgressProject();
+          
+          if (savedView === 'database' || savedView === 'admin' || savedView === 'new_project') {
+             setView(savedView);
+          } else {
+             setView(hasInProgress ? 'new_project' : 'welcome');
+          }
+      }
+    });
+
+    return () => unsub();
+  }, [project.loadInProgressProject]);
 
   useEffect(() => {
-    const savedView = localStorage.getItem('ship-framework-last-view') as View;
-    // Priority check for in-progress project data loading
-    const hasInProgress = project.loadInProgressProject();
-
-    if (savedView === 'database' || savedView === 'admin') {
-        setView(savedView);
-    } else if (savedView === 'new_project' && hasInProgress) {
-        setView('new_project');
-    } else if (savedView === 'welcome') {
-        setView('welcome');
-    } else {
-        // Default behavior if no saved view or invalid state
-        if(hasInProgress) {
-            setView('new_project');
-        } else {
-            setView('welcome');
-        }
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-      // Save the last viewed section for persistence, but ignore transient views like 'view_archived'
-      // because they depend on transient state (selectedArchivedProject).
-      if (view && view !== 'view_archived') {
+      if (view && view !== 'view_archived' && isAuthReady && currentUser) {
           localStorage.setItem('ship-framework-last-view', view);
       }
-  }, [view]);
+  }, [view, isAuthReady, currentUser]);
 
   const hasUnsavedChanges = useCallback(() => {
       if (project.isProjectSaved) return false;
-
       const { stepsData, projectName, currentProjectProfile } = project;
-      const isPristine =
-          stepsData.every(step => !step.userInput.trim() && !step.aiResponse.trim()) &&
-          !projectName.trim() &&
-          !currentProjectProfile.name.trim();
-      
+      const isPristine = stepsData.every(step => !step.userInput.trim() && !step.aiResponse.trim()) && !projectName.trim() && !currentProjectProfile.name.trim();
       return !isPristine;
-  }, [project.isProjectSaved, project.stepsData, project.projectName, project.currentProjectProfile]);
+  }, [project]);
 
   const attemptNavigation = useCallback((callback: () => void) => {
       if (view === 'new_project' && hasUnsavedChanges()) {
@@ -672,42 +433,30 @@ const App: React.FC = () => {
       }
   }, [view, hasUnsavedChanges]);
 
-
   const handlePlaySpeech = useCallback(async (text: string, stepId: string) => {
     if (speechState.playing) {
         audioSourceRef.current?.stop();
         setSpeechState({ playing: false, forStep: null });
-        // If clicking the same button, just stop. If different, stop and then play new.
-        if (speechState.forStep === stepId) {
-            return;
-        }
+        if (speechState.forStep === stepId) return;
     }
 
     setSpeechState({ playing: true, forStep: stepId });
     try {
         const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error("API key not found.");
-        }
+        if (!apiKey) throw new Error("Clave de API no disponible.");
+        
         const ai = new GoogleGenAI({ apiKey });
         const response = await ai.models.generateContent({
-            model: "gemini-3.1-flash-tts-preview",
+            model: "gemini-2.5-flash-preview-tts",
             contents: [{ parts: [{ text }] }],
-            config: {
-                responseModalities: [Modality.AUDIO],
-            },
+            config: { responseModalities: [Modality.AUDIO] },
         });
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (base64Audio) {
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             }
-            const audioBuffer = await decodeAudioData(
-                decode(base64Audio),
-                audioContextRef.current,
-                24000,
-                1,
-            );
+            const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current, 24000, 1);
             const source = audioContextRef.current.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioContextRef.current.destination);
@@ -723,28 +472,28 @@ const App: React.FC = () => {
     }
 }, [speechState]);
   
-  const handleSaveProject = useCallback((projectData: Omit<ArchivedProject, 'id' | 'savedAt' | 'status'>) => {
+  const handleSaveProject = useCallback(async (projectData: Omit<ArchivedProject, 'id' | 'savedAt' | 'status'>) => {
       const newArchivedProject: ArchivedProject = {
           ...projectData,
-          id: new Date().toISOString(),
+          id: new Date().getTime().toString(),
           savedAt: new Date().toISOString(),
           status: 'pending'
       };
-      updateAndSaveArchive([newArchivedProject, ...archive]);
+      await firestoreService.saveProject(newArchivedProject);
       localStorage.removeItem('ship-framework-data');
       setTimeout(() => {
           project.resetProject();
           setView('welcome');
       }, 500);
-  }, [archive, project, updateAndSaveArchive]);
+  }, [project]);
   
-  const handleDeleteProject = useCallback((projectId: string) => {
-    updateAndSaveArchive(archive.filter(p => p.id !== projectId));
-  }, [archive, updateAndSaveArchive]);
+  const handleDeleteProject = useCallback(async (projectId: string) => {
+    await firestoreService.deleteProject(projectId);
+  }, []);
   
-  const handleUpdateProjectStatus = useCallback((projectId: string, status: ProjectStatus) => {
-    updateAndSaveArchive(archive.map(p => p.id === projectId ? { ...p, status } : p));
-  }, [archive, updateAndSaveArchive]);
+  const handleUpdateProjectStatus = useCallback(async (projectId: string, status: ProjectStatus) => {
+    await firestoreService.updateProjectStatus(projectId, status);
+  }, []);
   
   const handleViewProject = useCallback((project: ArchivedProject) => {
     setSelectedArchivedProject(project);
@@ -756,36 +505,34 @@ const App: React.FC = () => {
     setIsSaveTemplateModalOpen(true);
   }, []);
 
-  const handleConfirmSaveTemplate = useCallback((templateName: string) => {
+  const handleConfirmSaveTemplate = useCallback(async (templateName: string) => {
     if (!projectToTemplate) return;
     const newTemplate: ProjectTemplate = {
-      id: new Date().toISOString(),
+      id: new Date().getTime().toString(),
       name: templateName,
       createdAt: new Date().toISOString(),
       data: projectToTemplate,
     };
-    updateAndSaveTemplates([newTemplate, ...templates]);
+    await firestoreService.saveTemplate(newTemplate);
     setIsSaveTemplateModalOpen(false);
     setProjectToTemplate(null);
-  }, [projectToTemplate, templates, updateAndSaveTemplates]);
+  }, [projectToTemplate]);
   
-  const handleDeleteTemplate = useCallback((templateId: string) => {
-    updateAndSaveTemplates(templates.filter(t => t.id !== templateId));
-  }, [templates, updateAndSaveTemplates]);
+  const handleDeleteTemplate = useCallback(async (templateId: string) => {
+    await firestoreService.deleteTemplate(templateId);
+  }, []);
   
   const handleStartFromTemplate = useCallback((template: ProjectTemplate) => {
     project.startFromTemplate(template);
     setView('new_project');
   }, [project]);
 
-  // Handler for loading a project from Admin to Workspace ("Remodelar")
   const handleLoadProjectToWorkspace = useCallback((archivedProject: ArchivedProject) => {
     project.loadArchivedProject(archivedProject);
     setView('new_project');
   }, [project]);
 
-  // Voice command handling can remain here as it controls top-level view state
-  const handleVoiceCommand = (command: VoiceCommand, value?: string) => {
+  const handleVoiceCommand = (command: VoiceCommand) => {
     switch (command) {
         case 'START_NEW':
             if (view === 'welcome') attemptNavigation(project.resetProject);
@@ -794,10 +541,13 @@ const App: React.FC = () => {
             attemptNavigation(() => setView('database'));
             break;
         case 'GO_BACK':
-            if (view === 'view_archived' || view === 'database' || view === 'admin') setView('welcome');
+            if (['view_archived', 'database', 'admin'].includes(view)) setView('welcome');
             break;
     }
   };
+
+  if (!isAuthReady) return <LoadingSpinner />;
+  if (!currentUser) return <LoginOverlay />;
 
   const renderContent = () => {
     switch (view) {
@@ -843,8 +593,9 @@ const App: React.FC = () => {
         return <AdminPanel
             archive={archive}
             templates={templates}
-            onUpdateArchive={updateAndSaveArchive}
-            onUpdateTemplates={updateAndSaveTemplates}
+            onDeleteProject={handleDeleteProject}
+            onUpdateProjectStatus={handleUpdateProjectStatus}
+            onDeleteTemplate={handleDeleteTemplate}
             onLoadProjectToWorkspace={(p) => attemptNavigation(() => handleLoadProjectToWorkspace(p))}
             onExport={exportDatabase}
             onImport={importDatabase}
@@ -874,56 +625,51 @@ const App: React.FC = () => {
           />
       )}
       {pendingNavigation && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in-up">
-            <div className="bg-sky-800 rounded-2xl shadow-2xl p-8 max-w-md w-full" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
-                <h2 id="confirm-modal-title" className="text-2xl font-bold text-slate-100">¿Descartar cambios?</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[110] p-4 animate-fade-in-up">
+            <div className="bg-sky-800 rounded-2xl shadow-2xl p-8 max-w-md w-full" role="dialog" aria-modal="true">
+                <h2 className="text-2xl font-bold text-slate-100">¿Descartar cambios?</h2>
                 <p className="text-slate-300 my-4">Tienes cambios sin guardar. Si continúas, se perderá tu progreso actual.</p>
                 <div className="flex justify-end gap-4 mt-8">
-                    <button onClick={() => setPendingNavigation(null)} className="px-6 py-2 bg-slate-600 text-slate-100 font-bold rounded-lg hover:bg-slate-500 transition-colors">
-                        Cancelar
-                    </button>
-                    <button onClick={() => {
-                        if (pendingNavigation) pendingNavigation();
-                        setPendingNavigation(null);
-                    }} className="px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">
-                        Descartar
-                    </button>
+                    <button onClick={() => setPendingNavigation(null)} className="px-6 py-2 bg-slate-600 text-slate-100 font-bold rounded-lg hover:bg-slate-500 transition-colors">Cancelar</button>
+                    <button onClick={() => { pendingNavigation?.(); setPendingNavigation(null); }} className="px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Descartar</button>
                 </div>
             </div>
         </div>
       )}
         
-      <header className="flex justify-between items-center mb-8 sticky top-0 bg-sky-900/80 backdrop-blur-sm py-4 z-40 -mx-4 px-4">
-           <h1 onClick={() => view !== 'welcome' && attemptNavigation(() => setView('welcome'))} className={`text-4xl font-extrabold text-slate-100 tracking-tight ${view !== 'welcome' ? 'cursor-pointer' : ''}`}>
-              S.H.I.P. <span className="font-light text-slate-400">Framework Helper</span>
+      <header className="flex justify-between items-center mb-8 sticky top-0 bg-sky-950/80 backdrop-blur-md py-4 z-40 -mx-4 px-4 border-b border-sky-800">
+           <h1 onClick={() => view !== 'welcome' && attemptNavigation(() => setView('welcome'))} className={`text-3xl md:text-4xl font-black text-slate-100 tracking-tighter sm:tracking-normal ${view !== 'welcome' ? 'cursor-pointer' : ''}`}>
+              S.H.I.P. <span className="font-light text-slate-500 hidden sm:inline">Helper</span>
            </h1>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex items-center gap-3">
               {autoSaveStatus !== 'idle' && view === 'new_project' && (
-                  <div className="text-sm text-slate-400 flex items-center gap-2 transition-opacity duration-300">
-                      {autoSaveStatus === 'saving' && <> <svg className="animate-spin h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Guardando...</>}
-                      {autoSaveStatus === 'saved' && <>✔️ Guardado</>}
+                  <div className="text-xs text-slate-400 flex items-center gap-2">
+                       {autoSaveStatus === 'saving' ? <RotateCcw className="animate-spin h-3 w-3" /> : '✓'} {autoSaveStatus === 'saving' ? 'Auto-guardando...' : 'Borrador guardado'}
                   </div>
               )}
-               <button onClick={() => attemptNavigation(() => setView('admin'))} className="p-2 rounded-full hover:bg-sky-800 transition-colors" aria-label="Abrir panel admin">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-               </button>
-               <button onClick={() => attemptNavigation(() => setView('database'))} className="p-2 rounded-full hover:bg-sky-800 transition-colors" aria-label="Abrir base de datos de proyectos">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                  </svg>
-               </button>
-               <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-sky-800 transition-colors" aria-label="Abrir configuración">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-               </button>
+
+              <div className="flex items-center bg-sky-900/50 rounded-full px-2 py-1 border border-sky-800">
+                  <button onClick={() => attemptNavigation(() => setView('database'))} className={`p-2 rounded-full transition-colors ${view === 'database' ? 'text-orange-400 bg-sky-800/80' : 'text-slate-400 hover:text-slate-200'}`} title="Base de datos">
+                    <Database className="h-5 w-5" />
+                  </button>
+                  <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full text-slate-400 hover:text-slate-200 transition-colors" title="Ajustes">
+                    <Settings className="h-5 w-5" />
+                  </button>
+                  <div className="w-px h-6 bg-sky-800 mx-1" />
+                  <div className="flex items-center gap-2 pl-2 pr-1">
+                      <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-xs overflow-hidden">
+                          {currentUser.photoURL ? <img src={currentUser.photoURL} alt="" referrerPolicy="no-referrer" /> : <UserIcon className="w-4 h-4" />}
+                      </div>
+                      <button onClick={() => signOut(auth)} className="p-2 text-slate-400 hover:text-red-400 transition-colors" title="Cerrar sesión">
+                          <LogOut className="w-5 h-5" />
+                      </button>
+                  </div>
+              </div>
           </div>
       </header>
       
-      {renderContent()}
+      {isDataLoading ? <LoadingSpinner /> : renderContent()}
 
       <VoiceControl
         onCommand={handleVoiceCommand}

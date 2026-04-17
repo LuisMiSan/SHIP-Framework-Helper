@@ -32,11 +32,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({ archive, onViewProject, onD
       const reader = new FileReader();
       reader.onload = (event) => {
           const content = event.target?.result as string;
-          if (onImport(content)) {
-              alert('Base de datos restaurada con éxito.');
-          } else {
-              alert('Error al importar el archivo. Asegúrate de que es un archivo de backup válido de SHIP Helper.');
-          }
+          onImport(content);
       };
       reader.readAsText(file);
       // Reset input

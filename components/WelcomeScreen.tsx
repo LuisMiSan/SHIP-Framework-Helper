@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ArchivedProject, ProjectStatus, ProjectTemplate } from '../types';
+import { Rocket, Database, Trash2, ChevronRight } from 'lucide-react';
 
 interface WelcomeScreenProps {
   onStartNew: () => void;
@@ -45,15 +46,15 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, templates, on
         <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
           <button
             onClick={onStartNew}
-            className="px-10 py-5 bg-orange-500 text-white font-bold rounded-lg text-xl hover:bg-orange-600 transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30"
+            className="px-10 py-5 bg-orange-500 text-white font-bold rounded-lg text-xl hover:bg-orange-600 transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
           >
-            🚀 Empezar un Nuevo Proyecto
+            <Rocket className="w-6 h-6" /> Empezar un Nuevo Proyecto
           </button>
           <button
             onClick={onNavigateToDatabase}
-            className="px-10 py-5 bg-sky-700 text-white font-bold rounded-lg text-xl hover:bg-sky-600 transition-all transform hover:scale-105 shadow-lg shadow-sky-500/30"
+            className="px-10 py-5 bg-sky-700 text-white font-bold rounded-lg text-xl hover:bg-sky-600 transition-all transform hover:scale-105 shadow-lg shadow-sky-500/30 flex items-center justify-center gap-2"
           >
-            📂 Ver Base de Datos
+            <Database className="w-6 h-6" /> Ver Base de Datos
           </button>
         </div>
 
@@ -93,9 +94,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, templates, on
                                 className="text-slate-500 hover:text-red-400 transition-colors p-1"
                                 title="Eliminar plantilla"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
+                                <Trash2 className="h-5 w-5" />
                             </button>
                         </div>
                         
@@ -115,9 +114,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, templates, on
                             className="w-full py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-500 transition-all transform hover:scale-[1.02] shadow-md flex items-center justify-center gap-2"
                         >
                             <span>Cargar esta Plantilla</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                            </svg>
+                            <ChevronRight className="h-5 w-5" />
                         </button>
                     </div>
                 )}

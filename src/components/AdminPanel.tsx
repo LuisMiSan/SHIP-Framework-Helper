@@ -63,11 +63,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         const reader = new FileReader();
         reader.onload = (ev) => {
             const content = ev.target?.result as string;
-            if (onImport(content)) {
-                alert('Datos importados correctamente.');
-            } else {
-                alert('Error al importar datos.');
-            }
+            onImport(content);
         };
         reader.readAsText(file);
         if(e.target) e.target.value = '';

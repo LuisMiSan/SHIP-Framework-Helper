@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { ArchivedProject, ProjectStatus, StepData } from '../types';
 import StatusBadge from './StatusBadge';
+import { FileText, Save, Layout, ArrowLeft, RefreshCw, CheckCircle, XCircle, Clock, Download, Copy } from 'lucide-react';
 
 interface SummaryDisplayProps {
   project: ArchivedProject;
@@ -139,30 +140,30 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
       <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4 flex-wrap">
         {isArchived ? (
             <>
-              <button onClick={onBackToArchive} className="w-full sm:w-auto px-6 py-3 bg-slate-600 text-slate-100 font-bold rounded-lg text-lg hover:bg-slate-500 transition-all transform hover:scale-105">
-                &larr; Volver a la Base de Datos
+              <button onClick={onBackToArchive} className="w-full sm:w-auto px-6 py-3 bg-slate-600 text-slate-100 font-bold rounded-lg text-lg hover:bg-slate-500 transition-all transform hover:scale-105 flex items-center justify-center gap-2">
+                <ArrowLeft className="w-5 h-5" /> Volver a la Base de Datos
               </button>
                <button
                   onClick={onRestart}
-                  className="w-full sm:w-auto px-8 py-3 bg-orange-500 text-white font-bold rounded-lg text-lg hover:bg-orange-600 transition-all transform hover:scale-105"
+                  className="w-full sm:w-auto px-8 py-3 bg-orange-500 text-white font-bold rounded-lg text-lg hover:bg-orange-600 transition-all transform hover:scale-105 flex items-center justify-center gap-2"
                 >
-                Empezar un Nuevo Proyecto
+                <RefreshCw className="w-5 h-5" /> Empezar un Nuevo Proyecto
                </button>
               <div className="flex gap-2">
-                <button onClick={() => onUpdateProjectStatus(project.id, 'success')} className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white font-bold rounded-lg text-lg hover:bg-green-700 transition-all transform hover:scale-105">
-                  Éxito
+                <button onClick={() => onUpdateProjectStatus(project.id, 'success')} className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white font-bold rounded-lg text-lg hover:bg-green-700 transition-all transform hover:scale-105 flex items-center justify-center gap-2">
+                  <CheckCircle className="w-5 h-5" /> Éxito
                 </button>
-                <button onClick={() => onUpdateProjectStatus(project.id, 'failed')} className="w-full sm:w-auto px-6 py-3 bg-red-600 text-white font-bold rounded-lg text-lg hover:bg-red-700 transition-all transform hover:scale-105">
-                  Falló
+                <button onClick={() => onUpdateProjectStatus(project.id, 'failed')} className="w-full sm:w-auto px-6 py-3 bg-red-600 text-white font-bold rounded-lg text-lg hover:bg-red-700 transition-all transform hover:scale-105 flex items-center justify-center gap-2">
+                  <XCircle className="w-5 h-5" /> Falló
                 </button>
               </div>
             </>
         ) : (
             <button
             onClick={onRestart}
-            className="w-full sm:w-auto px-8 py-3 bg-slate-600 text-slate-100 font-bold rounded-lg text-lg hover:bg-slate-500 transition-all transform hover:scale-105"
+            className="w-full sm:w-auto px-8 py-3 bg-slate-600 text-slate-100 font-bold rounded-lg text-lg hover:bg-slate-500 transition-all transform hover:scale-105 flex items-center justify-center gap-2"
             >
-            &larr; Volver y Editar
+            <ArrowLeft className="w-5 h-5" /> Volver y Editar
             </button>
         )}
         
@@ -170,9 +171,9 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
            <button
            onClick={handleSave}
            disabled={isSaved}
-           className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-sky-700 text-white font-bold rounded-lg text-lg hover:bg-sky-600 transition-all transform hover:scale-105 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none"
+           className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-sky-700 text-white font-bold rounded-lg text-lg hover:bg-sky-600 transition-all transform hover:scale-105 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none"
          >
-           {isSaved ? <span className="flex items-center justify-center animate-pop-in">✔️ Guardado</span> : '📂 Guardar y Salir'}
+           {isSaved ? <span className="flex items-center justify-center animate-pop-in gap-2"><CheckCircle className="w-5 h-5" /> Guardado</span> : <><Save className="w-5 h-5" /> Guardar y Salir</>}
          </button>
         )}
 
@@ -184,23 +185,18 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ project, onRestart, onS
         >
           {isGeneratingPdf ? (
             <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <RefreshCw className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
               <span>Generando PDF...</span>
             </>
           ) : (
-            <span>Descargar como PDF</span>
+            <span className="flex items-center gap-2 flex-center"><Download className="w-5 h-5" /> Descargar como PDF</span>
           )}
         </button>
         <button
           onClick={() => onSaveAsTemplate(project.data)}
-          className="w-full sm:w-auto flex items-center justify-center px-8 py-3 bg-sky-700 text-white font-bold rounded-lg text-lg hover:bg-sky-600 transition-all transform hover:scale-105"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-sky-700 text-white font-bold rounded-lg text-lg hover:bg-sky-600 transition-all transform hover:scale-105"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
+          <Layout className="w-5 h-5" />
           <span>Guardar como Plantilla</span>
         </button>
       </div>
