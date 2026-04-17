@@ -34,11 +34,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        // Simple hardcoded password for client-side demo
-        if (passwordInput === 'admin123') {
+        // Demonstration only: Any non-empty password will work
+        if (passwordInput.trim().length > 0) {
             setIsAuthenticated(true);
         } else {
-            alert('Contraseña incorrecta');
+            alert('Por favor, ingresa una contraseña (cualquier texto funciona en esta demo local)');
         }
     };
 
@@ -91,7 +91,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                             type="password"
                             value={passwordInput}
                             onChange={(e) => setPasswordInput(e.target.value)}
-                            placeholder="Contraseña (admin123)"
+                            placeholder="Introduce cualquier contraseña para entrar"
                             className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-orange-500 outline-none"
                             autoFocus
                         />

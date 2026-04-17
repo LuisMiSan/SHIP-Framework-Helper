@@ -10,17 +10,17 @@ interface SettingsModalProps {
 
 const modelOptions: { id: AvailableModel; name: string; description: string }[] = [
     {
-        id: 'gemini-2.5-flash-lite',
+        id: 'gemini-3.1-flash-lite-preview',
         name: 'Gemini Flash Lite',
         description: 'El más rápido para respuestas casi instantáneas en tareas sencillas.'
     },
     {
-        id: 'gemini-2.5-flash',
+        id: 'gemini-3-flash-preview',
         name: 'Gemini Flash',
         description: 'Rápido y eficiente, ideal para tareas cotidianas y respuestas rápidas.'
     },
     {
-        id: 'gemini-2.5-pro',
+        id: 'gemini-3.1-pro-preview',
         name: 'Gemini Pro',
         description: 'Más potente y con mayor capacidad de razonamiento, para análisis complejos.'
     }
@@ -28,20 +28,20 @@ const modelOptions: { id: AvailableModel; name: string; description: string }[] 
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ currentSettings, onSave, onClose }) => {
     const [temperature, setTemperature] = useState(currentSettings.temperature);
-    const [model, setModel] = useState<AvailableModel>(currentSettings.model || 'gemini-2.5-flash-lite');
+    const [model, setModel] = useState<AvailableModel>(currentSettings.model || 'gemini-3.1-flash-lite-preview');
     const [useThinkingMode, setUseThinkingMode] = useState(!!currentSettings.useThinkingMode);
     const [useGoogleSearch, setUseGoogleSearch] = useState(!!currentSettings.useGoogleSearch);
 
     // Sync state if props change while modal is open
     useEffect(() => {
         setTemperature(currentSettings.temperature);
-        let initialModel = currentSettings.model || 'gemini-2.5-flash-lite';
+        let initialModel = currentSettings.model || 'gemini-3.1-flash-lite-preview';
         
         // Align visual model with active modes based on App logic
         if (currentSettings.useThinkingMode) {
-             initialModel = 'gemini-2.5-pro';
+             initialModel = 'gemini-3.1-pro-preview';
         } else if (currentSettings.useGoogleSearch) {
-             initialModel = 'gemini-2.5-flash';
+             initialModel = 'gemini-3-flash-preview';
         }
         
         setModel(initialModel);

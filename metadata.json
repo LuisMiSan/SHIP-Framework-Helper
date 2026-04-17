@@ -3,5 +3,6 @@
   "description": "An AI-powered assistant to guide you through the S.H.I.P. (Solve, Hypothesize, Implement, Persevere) product development process.",
   "requestFramePermissions": [
     "microphone"
-  ]
+  ],
+  "majorCapabilities": []
 }

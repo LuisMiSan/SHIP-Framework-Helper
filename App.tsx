@@ -6,7 +6,6 @@ import { initialStepsData } from './data/initialData';
 import { preloadedTemplates } from './data/templates';
 import StepCard from './components/IdeaInput';
 import SummaryDisplay from './components/ArchitectureDisplay';
-import ApiKeySetup from './components/ApiKeySetup';
 import WelcomeScreen from './components/WelcomeScreen';
 import DatabaseView from './components/DatabaseView';
 import VoiceControl from './components/VoiceControl';
@@ -112,7 +111,7 @@ const validateInput = (stepId: string, userInput: string): { isValid: boolean; m
 function useAppData() {
     const [archive, setArchive] = useState<ArchivedProject[]>([]);
     const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
-    const [aiSettings, setAiSettings] = useState<AISettings>({ temperature: 0.7, model: 'gemini-2.5-flash-lite', useThinkingMode: false, useGoogleSearch: false });
+    const [aiSettings, setAiSettings] = useState<AISettings>({ temperature: 0.7, model: 'gemini-3.1-flash-lite-preview', useThinkingMode: false, useGoogleSearch: false });
 
     useEffect(() => {
         try {
@@ -356,14 +355,13 @@ function useAutoSave(projectState: { stepsData: StepData[], projectName: string,
 interface ProjectWorkspaceProps {
     project: ReturnType<typeof useProject>;
     aiSettings: AISettings;
-    setApiKeyStatus: (status: 'valid' | 'missing' | 'invalid') => void;
     onSaveProject: (projectData: Omit<ArchivedProject, 'id' | 'savedAt' | 'status'>) => void;
     onSaveAsTemplate: (data: StepData[]) => void;
     onPlaySpeech: (text: string, stepId: string) => Promise<void>;
     speechPlayingForStep: string | null;
 }
 
-const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings, setApiKeyStatus, onSaveProject, onSaveAsTemplate, onPlaySpeech, speechPlayingForStep }) => {
+const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings, onSaveProject, onSaveAsTemplate, onPlaySpeech, speechPlayingForStep }) => {
     const { stepsData, setStepsData, projectName, setProjectName, currentProjectProfile, setCurrentProjectProfile, validationErrors, setValidationErrors, isProjectSaved, setIsProjectSaved } = project;
     const [showSummary, setShowSummary] = useState(false);
     const [apiError, setApiError] = useState<string | null>(null);
@@ -393,9 +391,8 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
         } : step));
 
         try {
-            const apiKey = process.env.API_KEY;
+            const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
-                setApiKeyStatus('missing');
                 throw new Error("API key not found.");
             }
             const ai = new GoogleGenAI({ apiKey });
@@ -410,7 +407,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             const isThinkingMode = aiSettings.useThinkingMode && !aiSettings.useGoogleSearch;
             const useGoogleSearch = aiSettings.useGoogleSearch;
 
-            let modelToUse = isThinkingMode ? 'gemini-3-pro-preview' : aiSettings.model;
+            let modelToUse = isThinkingMode ? 'gemini-3.1-pro-preview' : aiSettings.model;
             if (useGoogleSearch) {
                 modelToUse = 'gemini-3-flash-preview';
             }
@@ -450,33 +447,21 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
             }
         } catch (err) {
             console.error("Error getting AI help:", err);
-            let isKeyError = false;
             let detailedError = "Ocurrió un error inesperado.";
 
             if (err instanceof Error) {
                 detailedError = err.message;
-                const lowerCaseError = err.message.toLowerCase();
-                if (lowerCaseError.includes('api key not valid') || lowerCaseError.includes('invalid api key')) {
-                    setApiKeyStatus('invalid');
-                    isKeyError = true;
-                } else if (lowerCaseError.includes('api key not found')) {
-                    setApiKeyStatus('missing');
-                    isKeyError = true;
-                }
             }
-            if (!isKeyError) {
-                setApiError(`No pude contactar a la IA. Por favor, inténtalo de nuevo más tarde. (Detalle: ${detailedError})`);
-            }
+            setApiError(`No pude contactar a la IA. Por favor, inténtalo de nuevo más tarde. (Detalle: ${detailedError})`);
         } finally {
             setStepsData(prev => prev.map((step, i) => i === index ? { ...step, isLoading: false } : step));
         }
-    }, [stepsData, aiSettings, setApiKeyStatus, setStepsData, setValidationErrors]);
+    }, [stepsData, aiSettings, setStepsData, setValidationErrors]);
 
     const handleTranscribeAudio = useCallback(async (index: number, blob: Blob) => {
         try {
-            const apiKey = process.env.API_KEY;
+            const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
-                setApiKeyStatus('missing');
                 throw new Error("API key not found.");
             }
 
@@ -623,7 +608,6 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('welcome');
-  const [apiKeyStatus, setApiKeyStatus] = useState<'valid' | 'missing' | 'invalid'>('valid');
   const [selectedArchivedProject, setSelectedArchivedProject] = useState<ArchivedProject | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
@@ -640,26 +624,22 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
-    if (!process.env.API_KEY) {
-      setApiKeyStatus('missing');
-    } else {
-        const savedView = localStorage.getItem('ship-framework-last-view') as View;
-        // Priority check for in-progress project data loading
-        const hasInProgress = project.loadInProgressProject();
+    const savedView = localStorage.getItem('ship-framework-last-view') as View;
+    // Priority check for in-progress project data loading
+    const hasInProgress = project.loadInProgressProject();
 
-        if (savedView === 'database' || savedView === 'admin') {
-            setView(savedView);
-        } else if (savedView === 'new_project' && hasInProgress) {
+    if (savedView === 'database' || savedView === 'admin') {
+        setView(savedView);
+    } else if (savedView === 'new_project' && hasInProgress) {
+        setView('new_project');
+    } else if (savedView === 'welcome') {
+        setView('welcome');
+    } else {
+        // Default behavior if no saved view or invalid state
+        if(hasInProgress) {
             setView('new_project');
-        } else if (savedView === 'welcome') {
-            setView('welcome');
         } else {
-            // Default behavior if no saved view or invalid state
-            if(hasInProgress) {
-                setView('new_project');
-            } else {
-                setView('welcome');
-            }
+            setView('welcome');
         }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -705,14 +685,13 @@ const App: React.FC = () => {
 
     setSpeechState({ playing: true, forStep: stepId });
     try {
-        const apiKey = process.env.API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            setApiKeyStatus('missing');
             throw new Error("API key not found.");
         }
         const ai = new GoogleGenAI({ apiKey });
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
+            model: "gemini-3.1-flash-tts-preview",
             contents: [{ parts: [{ text }] }],
             config: {
                 responseModalities: [Modality.AUDIO],
@@ -807,8 +786,6 @@ const App: React.FC = () => {
 
   // Voice command handling can remain here as it controls top-level view state
   const handleVoiceCommand = (command: VoiceCommand, value?: string) => {
-    // This function can be implemented similarly to the original, but would now
-    // call functions from the project hook or setView directly.
     switch (command) {
         case 'START_NEW':
             if (view === 'welcome') attemptNavigation(project.resetProject);
@@ -819,13 +796,8 @@ const App: React.FC = () => {
         case 'GO_BACK':
             if (view === 'view_archived' || view === 'database' || view === 'admin') setView('welcome');
             break;
-        // ... etc.
     }
   };
-
-  if (apiKeyStatus !== 'valid') {
-    return <ApiKeySetup reason={apiKeyStatus} />;
-  }
 
   const renderContent = () => {
     switch (view) {
@@ -862,7 +834,6 @@ const App: React.FC = () => {
         return <ProjectWorkspace
             project={project}
             aiSettings={aiSettings}
-            setApiKeyStatus={setApiKeyStatus}
             onSaveProject={handleSaveProject}
             onSaveAsTemplate={handleSaveAsTemplate}
             onPlaySpeech={(text, stepId) => handlePlaySpeech(text, stepId)}
