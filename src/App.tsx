@@ -30,6 +30,7 @@ import SaveTemplateModal from './components/SaveTemplateModal';
 import AdminPanel from './components/AdminPanel';
 import LoginOverlay from './components/LoginOverlay';
 import LoadingSpinner from './components/LoadingSpinner';
+import TutorialOverlay from './components/TutorialOverlay';
 
 import { LogOut, User as UserIcon, Settings, Database, RotateCcw } from 'lucide-react';
 
@@ -380,6 +381,7 @@ const App: React.FC = () => {
   const [selectedArchivedProject, setSelectedArchivedProject] = useState<ArchivedProject | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [projectToTemplate, setProjectToTemplate] = useState<StepData[] | null>(null);
   const [speechState, setSpeechState] = useState<{ playing: boolean, forStep: string | null }>({ playing: false, forStep: null });
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
@@ -558,6 +560,7 @@ const App: React.FC = () => {
           onStartFromTemplate={(template) => attemptNavigation(() => handleStartFromTemplate(template))}
           onDeleteTemplate={handleDeleteTemplate}
           onNavigateToDatabase={() => attemptNavigation(() => setView('database'))}
+          onShowTutorial={() => setIsTutorialOpen(true)}
         />;
       case 'database':
         return <DatabaseView
@@ -622,6 +625,12 @@ const App: React.FC = () => {
           <SaveTemplateModal
               onSave={handleConfirmSaveTemplate}
               onClose={() => setIsSaveTemplateModalOpen(false)}
+          />
+      )}
+
+      {isTutorialOpen && (
+          <TutorialOverlay
+              onClose={() => setIsTutorialOpen(false)}
           />
       )}
       {pendingNavigation && (

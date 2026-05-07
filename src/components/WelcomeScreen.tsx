@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ArchivedProject, ProjectStatus, ProjectTemplate } from '../types';
-import { Rocket, Database, Trash2, ChevronRight } from 'lucide-react';
+import { Rocket, Database, Trash2, ChevronRight, Info } from 'lucide-react';
 
 interface WelcomeScreenProps {
   onStartNew: () => void;
@@ -9,9 +9,17 @@ interface WelcomeScreenProps {
   onStartFromTemplate: (template: ProjectTemplate) => void;
   onDeleteTemplate: (templateId: string) => void;
   onNavigateToDatabase: () => void;
+  onShowTutorial: () => void;
 }
 
-const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, templates, onStartFromTemplate, onDeleteTemplate, onNavigateToDatabase }) => {
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ 
+    onStartNew, 
+    templates, 
+    onStartFromTemplate, 
+    onDeleteTemplate, 
+    onNavigateToDatabase,
+    onShowTutorial
+}) => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   
   // Select the first template by default if available
@@ -57,6 +65,14 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStartNew, templates, on
             <Database className="w-6 h-6" /> Ver Base de Datos
           </button>
         </div>
+
+        <button 
+            onClick={onShowTutorial}
+            className="mt-8 flex items-center justify-center gap-2 mx-auto text-slate-400 hover:text-orange-400 transition-colors group"
+        >
+            <Info className="w-5 h-5" />
+            <span className="font-semibold underline underline-offset-4">¿Cómo funciona el Framework S.H.I.P.?</span>
+        </button>
 
         {hasTemplates && (
             <div className="mt-16 text-left w-full max-w-3xl mx-auto bg-sky-800/50 p-6 rounded-xl border border-sky-700">
