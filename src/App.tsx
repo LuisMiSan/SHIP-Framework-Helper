@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
-import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { onAuthStateChanged, User, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { 
     StepData, 
     ArchivedProject, 
@@ -318,6 +318,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
                 onSaveProject={handleSaveAndArchive}
                 isArchived={false}
                 isSaved={isProjectSaved}
+                onBackToArchive={() => setShowSummary(false)}
                 onUpdateProjectStatus={() => {}}
                 onSaveAsTemplate={onSaveAsTemplate}
             />
@@ -548,8 +549,18 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("Error al iniciar sesión con Google.");
+    }
+  };
+
   if (!isAuthReady) return <LoadingSpinner />;
-  if (!currentUser) return <LoginOverlay />;
+  if (!currentUser) return <LoginOverlay onLogin={handleGoogleLogin} />;
 
   const renderContent = () => {
     switch (view) {
@@ -625,6 +636,7 @@ const App: React.FC = () => {
           <SaveTemplateModal
               onSave={handleConfirmSaveTemplate}
               onClose={() => setIsSaveTemplateModalOpen(false)}
+              currentProjectName={project.projectName}
           />
       )}
 

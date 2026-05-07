@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { ArchivedProject, ProjectTemplate, ProjectStatus } from '../types';
 import StatusBadge from './StatusBadge';
-import { Shield, Layout, Database, Upload, Download, Trash2, Edit, X, Search, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Shield, Layout, Database, Upload, Download, Trash2, Edit, X, Search, CheckCircle, XCircle, Clock, FileText, Settings, User, Globe } from 'lucide-react';
 
 interface AdminPanelProps {
   archive: ArchivedProject[];
@@ -41,20 +41,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         if (passwordInput.trim().length > 0) {
             setIsAuthenticated(true);
         } else {
-            alert('Por favor, ingresa una contraseña (cualquier texto funciona en esta demo local)');
+            alert('Por favor, ingresa una contraseña admin.');
         }
-    };
-
-    const handleDeleteProject = (id: string) => {
-        onDeleteProject(id);
-    };
-
-    const handleUpdateStatus = (id: string, newStatus: ProjectStatus) => {
-        onUpdateProjectStatus(id, newStatus);
-    };
-
-    const handleDeleteTemplate = (id: string) => {
-        onDeleteTemplate(id);
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,28 +59,31 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
     if (!isAuthenticated) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in-up">
-                <div className="bg-slate-800 p-8 rounded-xl shadow-2xl border border-slate-700 max-w-sm w-full">
-                    <div className="flex justify-center mb-6">
-                        <div className="bg-slate-700 p-3 rounded-full">
-                            <Shield className="h-8 w-8 text-orange-500" />
+            <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-md z-[300] flex items-center justify-center p-6">
+                <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full border border-gray-100 animate-in fade-in zoom-in duration-300">
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-blue-600 p-4 rounded-2xl shadow-xl shadow-blue-200">
+                            <Shield className="h-10 w-10 text-white" />
                         </div>
                     </div>
-                    <h2 className="text-2xl font-bold text-center text-slate-100 mb-6">Acceso Admin</h2>
+                    <h2 className="text-3xl font-black text-center text-gray-900 mb-2 tracking-tight">Zona Restringida</h2>
+                    <p className="text-gray-500 text-center text-sm font-medium mb-8">Identifícate para gestionar la plataforma.</p>
                     <form onSubmit={handleLogin} className="space-y-4">
-                        <input
-                            type="password"
-                            value={passwordInput}
-                            onChange={(e) => setPasswordInput(e.target.value)}
-                            placeholder="Introduce cualquier contraseña para entrar"
-                            className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-100 focus:ring-2 focus:ring-orange-500 outline-none"
-                            autoFocus
-                        />
-                        <button type="submit" className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg transition-colors">
-                            Entrar
+                        <div className="relative">
+                            <input
+                                type="password"
+                                value={passwordInput}
+                                onChange={(e) => setPasswordInput(e.target.value)}
+                                placeholder="Contraseña Admin"
+                                className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-bold"
+                                autoFocus
+                            />
+                        </div>
+                        <button type="submit" className="w-full py-4 bg-gray-900 hover:bg-black text-white font-black rounded-xl transition-all shadow-xl shadow-gray-200 active:scale-95">
+                            ACCEDER AL PANEL
                         </button>
                     </form>
-                    <button onClick={onClose} className="w-full mt-4 text-sm text-slate-400 hover:text-slate-200">
+                    <button onClick={onClose} className="w-full mt-6 text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-widest">
                         Volver a la App
                     </button>
                 </div>
@@ -105,96 +96,137 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         p.userProfile?.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const filteredTemplates = templates.filter(t =>
+        t.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-        <div className="animate-fade-in-up max-w-6xl mx-auto">
-            <div className="flex justify-between items-center mb-8 bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <div className="flex items-center gap-4">
-                     <div className="bg-orange-500 p-2 rounded-lg">
-                        <Shield className="h-6 w-6 text-white" />
+        <div className="max-w-6xl mx-auto pb-20">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+                <div className="flex items-center gap-5">
+                     <div className="bg-gray-900 p-4 rounded-2xl shadow-lg">
+                        <Shield className="h-8 w-8 text-white" />
                      </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-100">Panel de Administración</h1>
-                        <p className="text-sm text-slate-400">Gestión centralizada del sistema</p>
+                        <h1 className="text-4xl font-black text-gray-900 tracking-tight">Admin Console</h1>
+                        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">S.H.I.P. Framework Management</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
-                    <X className="w-4 h-4" /> Salir del Admin
+                <button 
+                  onClick={onClose} 
+                  className="px-6 py-3 bg-white border-2 border-gray-100 hover:border-gray-200 hover:bg-gray-50 text-gray-600 rounded-xl text-sm font-black transition-all flex items-center gap-2 shadow-sm"
+                >
+                    <X className="w-5 h-5" /> CERRAR PANEL
                 </button>
             </div>
 
-            <div className="flex gap-4 mb-6 border-b border-slate-700 pb-1 overflow-x-auto">
+            <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-2xl mb-8">
                 <button 
-                    onClick={() => setActiveTab('projects')}
-                    className={`px-4 py-2 rounded-t-lg font-bold transition-colors ${activeTab === 'projects' ? 'bg-sky-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                    onClick={() => { setActiveTab('projects'); setSearchTerm(''); }}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'projects' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    Gestión de Proyectos ({archive.length})
+                    <Database size={16} /> Proyectos ({archive.length})
                 </button>
                 <button 
-                    onClick={() => setActiveTab('templates')}
-                    className={`px-4 py-2 rounded-t-lg font-bold transition-colors ${activeTab === 'templates' ? 'bg-sky-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                    onClick={() => { setActiveTab('templates'); setSearchTerm(''); }}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'templates' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    Plantillas ({templates.length})
+                    <Layout size={16} /> Plantillas ({templates.length})
                 </button>
                 <button 
                     onClick={() => setActiveTab('data')}
-                    className={`px-4 py-2 rounded-t-lg font-bold transition-colors ${activeTab === 'data' ? 'bg-sky-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'data' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    Subir y Bajar Datos
+                    <Upload size={16} /> Backup & Sync
                 </button>
             </div>
 
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 min-h-[400px]">
-                {activeTab === 'projects' && (
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center mb-4">
-                             <input 
+            <div className="bg-white rounded-3xl shadow-xl shadow-gray-100 border border-gray-100 overflow-hidden min-h-[500px]">
+                {activeTab !== 'data' && (
+                    <div className="p-6 border-b border-gray-50 bg-gray-50/50">
+                        <div className="relative max-w-md">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input 
                                 type="text" 
-                                placeholder="Buscar por proyecto o cliente..." 
+                                placeholder={activeTab === 'projects' ? "Buscar por proyecto o cliente..." : "Buscar plantillas..."}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-4 py-2 w-full max-w-md focus:ring-2 focus:ring-sky-500 outline-none"
+                                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none font-bold text-gray-900 transition-all"
                             />
                         </div>
+                    </div>
+                )}
+
+                <div className="p-8">
+                    {activeTab === 'projects' && (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-slate-300">
-                                <thead className="bg-slate-700/50 text-slate-200 uppercase text-xs font-bold">
-                                    <tr>
-                                        <th className="p-3">Proyecto</th>
-                                        <th className="p-3">Cliente</th>
-                                        <th className="p-3">Fecha</th>
-                                        <th className="p-3">Estado</th>
-                                        <th className="p-3 text-right">Acciones</th>
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                                        <th className="pb-4 px-2">Proyecto</th>
+                                        <th className="pb-4 px-2">Cliente / Empresa</th>
+                                        <th className="pb-4 px-2">Fecha</th>
+                                        <th className="pb-4 px-2">Estado Escala</th>
+                                        <th className="pb-4 px-2 text-right">Controles</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-700">
+                                <tbody className="divide-y divide-gray-50">
                                     {filteredArchive.map(project => (
-                                        <tr key={project.id} className="hover:bg-slate-700/30 transition-colors">
-                                            <td className="p-3 font-medium text-white">{project.name}</td>
-                                            <td className="p-3">{project.userProfile.name}</td>
-                                            <td className="p-3 whitespace-nowrap">{new Date(project.savedAt).toLocaleDateString()}</td>
-                                            <td className="p-3">
-                                                <div className="flex gap-1">
-                                                    <button onClick={() => handleUpdateStatus(project.id, 'pending')} className={`w-3 h-3 rounded-full ${project.status === 'pending' ? 'bg-slate-400 ring-2 ring-slate-200' : 'bg-slate-800 border border-slate-600'}`} title="Pendiente"></button>
-                                                    <button onClick={() => handleUpdateStatus(project.id, 'success')} className={`w-3 h-3 rounded-full ${project.status === 'success' ? 'bg-green-500 ring-2 ring-green-200' : 'bg-slate-800 border border-slate-600'}`} title="Éxito"></button>
-                                                    <button onClick={() => handleUpdateStatus(project.id, 'failed')} className={`w-3 h-3 rounded-full ${project.status === 'failed' ? 'bg-red-500 ring-2 ring-red-200' : 'bg-slate-800 border border-slate-600'}`} title="Falló"></button>
-                                                    <span className="ml-2 text-xs opacity-70 uppercase">{project.status}</span>
+                                        <tr key={project.id} className="group hover:bg-gray-50/50 transition-colors">
+                                            <td className="py-5 px-2">
+                                                <div className="font-bold text-gray-900">{project.name}</div>
+                                                <div className="text-[10px] font-mono text-gray-400">{project.id}</div>
+                                            </td>
+                                            <td className="py-5 px-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                                                        <User size={14} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm font-bold text-gray-700">{project.userProfile.name}</div>
+                                                        <div className="text-xs text-gray-400 font-medium">{project.userProfile.company}</div>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="p-3 text-right">
-                                                <div className="flex justify-end gap-2 text-right">
+                                            <td className="py-5 px-2">
+                                                <div className="text-xs font-bold text-gray-500 flex items-center gap-1">
+                                                    <Clock size={12} />
+                                                    {new Date(project.savedAt).toLocaleDateString()}
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-2">
+                                                <div className="flex items-center gap-3">
+                                                    <select 
+                                                        value={project.status}
+                                                        onChange={(e) => onUpdateProjectStatus(project.id, e.target.value as ProjectStatus)}
+                                                        className="bg-gray-100 border-none rounded-lg text-xs font-black uppercase py-1.5 px-3 focus:ring-2 focus:ring-blue-100 outline-none cursor-pointer"
+                                                    >
+                                                        <option value="pending">PENDIENTE</option>
+                                                        <option value="success">ÉXITO</option>
+                                                        <option value="failed">FALLIDO</option>
+                                                    </select>
+                                                    <StatusBadge status={project.status} size="sm" />
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-2 text-right">
+                                                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button 
                                                         onClick={() => onLoadProjectToWorkspace(project)}
-                                                        className="px-3 py-1 bg-sky-600 text-white rounded hover:bg-sky-500 transition-colors text-xs font-bold flex items-center gap-1"
+                                                        className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all text-xs font-black flex items-center gap-2 shadow-lg shadow-blue-100"
                                                     >
                                                         <Edit className="h-3 w-3" />
                                                         REMODELAR
                                                     </button>
                                                     <button 
-                                                        onClick={() => handleDeleteProject(project.id)}
-                                                        className="p-1.5 text-red-400 hover:bg-red-900/50 rounded transition-colors"
+                                                        onClick={() => {
+                                                            if (confirm('¿Seguro que quieres eliminar este proyecto permanentemente?')) {
+                                                                onDeleteProject(project.id);
+                                                            }
+                                                        }}
+                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
                                                         title="Eliminar"
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Trash2 className="h-5 w-5" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -202,81 +234,127 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                                     ))}
                                     {filteredArchive.length === 0 && (
                                         <tr>
-                                            <td colSpan={5} className="p-8 text-center text-slate-500">No se encontraron proyectos.</td>
+                                            <td colSpan={5} className="py-20 text-center">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <Database className="text-gray-200" size={48} />
+                                                    <p className="text-gray-400 font-bold">No se encontraron proyectos archivados.</p>
+                                                </div>
+                                            </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {activeTab === 'templates' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {templates.map(template => (
-                            <div key={template.id} className="bg-slate-900 p-4 rounded-lg border border-slate-700">
-                                <h3 className="font-bold text-slate-200 mb-2">{template.name}</h3>
-                                <p className="text-xs text-slate-500 mb-4">ID: {template.id}</p>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">
-                                        {new Date(template.createdAt).toLocaleDateString()}
-                                    </span>
-                                    <button 
-                                        onClick={() => handleDeleteTemplate(template.id)}
-                                        className="text-red-400 hover:text-red-300 text-xs font-bold"
-                                    >
-                                        ELIMINAR
-                                    </button>
+                    {activeTab === 'templates' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredTemplates.map(template => (
+                                <div key={template.id} className="group bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-gray-100 transition-all hover:-translate-y-1 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                                                <Layout size={20} />
+                                            </div>
+                                            <h3 className="font-black text-gray-900 leading-tight">{template.name}</h3>
+                                        </div>
+                                        <div className="text-[10px] font-mono text-gray-300 mb-6 uppercase tracking-widest bg-gray-50 p-2 rounded-lg truncate">
+                                            ID: {template.id}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-4 border-t border-gray-50">
+                                        <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400">
+                                            <Clock size={12} />
+                                            {new Date(template.createdAt).toLocaleDateString()}
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                if (confirm('¿Eliminar esta plantilla?')) {
+                                                    onDeleteTemplate(template.id);
+                                                }
+                                            }}
+                                            className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-widest transition-colors"
+                                        >
+                                            ELIMINAR
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                         {templates.length === 0 && (
-                            <div className="col-span-full p-8 text-center text-slate-500">No hay plantillas personalizadas.</div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'data' && (
-                    <div className="flex flex-col items-center justify-center h-full py-12 space-y-8">
-                        <div className="text-center max-w-lg">
-                            <h3 className="text-xl font-bold text-slate-100 mb-2">Control de Datos JSON</h3>
-                            <p className="text-slate-400">Exporta la base de datos completa para guardarla en tu ordenador o importa un archivo previamente guardado para "subir" proyectos antiguos.</p>
+                            ))}
+                             {filteredTemplates.length === 0 && (
+                                <div className="col-span-full py-20 text-center">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <Layout className="text-gray-200" size={48} />
+                                        <p className="text-gray-400 font-bold">No hay plantillas guardadas.</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        
-                        <div className="flex gap-6">
-                            <div className="flex flex-col items-center">
+                    )}
+
+                    {activeTab === 'data' && (
+                        <div className="flex flex-col items-center justify-center py-12 space-y-12">
+                            <div className="text-center max-w-lg">
+                                <div className="inline-block p-4 bg-blue-50 rounded-full text-blue-600 mb-6">
+                                    <Database size={40} />
+                                </div>
+                                <h3 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Sincronización de Datos</h3>
+                                <p className="text-gray-500 font-medium leading-relaxed italic">
+                                    Exporta tu base de datos completa a un archivo JSON local como copia de seguridad, o importa archivos previos para restaurar información.
+                                </p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl px-4">
                                 <button
                                     onClick={onExport}
-                                    className="w-48 h-32 bg-sky-800 hover:bg-sky-700 border-2 border-sky-600 rounded-xl flex flex-col items-center justify-center gap-3 transition-all group"
+                                    className="group relative bg-white border-2 border-gray-100 hover:border-blue-200 p-10 rounded-3xl transition-all hover:shadow-2xl hover:shadow-blue-50 text-center overflow-hidden"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-sky-300 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                    <span className="font-bold text-sky-100">DESCARGAR BACKUP</span>
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <Download size={80} />
+                                    </div>
+                                    <div className="relative z-10 flex flex-col items-center gap-4">
+                                        <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 transform group-hover:scale-110 transition-transform">
+                                            <Download size={32} />
+                                        </div>
+                                        <div>
+                                            <span className="block font-black text-gray-900 text-lg">DESCARGAR BACKUP</span>
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Database.json</span>
+                                        </div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="group relative bg-white border-2 border-gray-100 hover:border-emerald-200 p-10 rounded-3xl transition-all hover:shadow-2xl hover:shadow-emerald-50 text-center overflow-hidden"
+                                >
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <Upload size={80} />
+                                    </div>
+                                    <div className="relative z-10 flex flex-col items-center gap-4">
+                                        <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transform group-hover:scale-110 transition-transform">
+                                            <Upload size={32} />
+                                        </div>
+                                        <div>
+                                            <span className="block font-black text-gray-900 text-lg">IMPORTAR DATOS</span>
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Restaurar registros</span>
+                                        </div>
+                                    </div>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={handleFileUpload} 
+                                        className="hidden" 
+                                        accept=".json" 
+                                    />
                                 </button>
                             </div>
 
-                            <div className="flex flex-col items-center">
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="w-48 h-32 bg-emerald-900/50 hover:bg-emerald-800/50 border-2 border-emerald-600/50 rounded-xl flex flex-col items-center justify-center gap-3 transition-all group"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-emerald-300 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                    </svg>
-                                    <span className="font-bold text-emerald-100">SUBIR / IMPORTAR</span>
-                                </button>
-                                <input 
-                                    type="file" 
-                                    ref={fileInputRef} 
-                                    onChange={handleFileUpload} 
-                                    className="hidden" 
-                                    accept=".json" 
-                                />
+                            <div className="flex items-center gap-2 text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] pt-8">
+                                <Globe size={12} /> Cloud Sync Active via Firestore
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </div>
     );
