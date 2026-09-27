@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { Modality } from '@google/genai';
 import { onAuthStateChanged, User, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, FirestoreError } from 'firebase/firestore';
 import { 
@@ -15,6 +15,7 @@ import {
     GroundingChunk 
 } from './types';
 import { auth, db } from './lib/firebase';
+import { getAI } from './lib/ai';
 import { firestoreService } from './lib/firestoreService';
 import { useAppData } from './hooks/useAppData';
 import { useProject } from './hooks/useProject';
@@ -167,11 +168,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
         } : step));
 
         try {
-            const apiKey = process.env.GEMINI_API_KEY;
-            if (!apiKey) {
-                throw new Error("Clave de API no disponible en el servidor.");
-            }
-            const ai = new GoogleGenAI({ apiKey });
+            const ai = await getAI();
             const context = {
                 solve: stepsData[0].userInput,
                 hypothesize: stepsData[1].userInput,
@@ -231,9 +228,6 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
 
     const handleTranscribeAudio = useCallback(async (index: number, blob: Blob) => {
         try {
-            const apiKey = process.env.GEMINI_API_KEY;
-            if (!apiKey) throw new Error("Clave de API no disponible.");
-
             const base64Audio = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(blob);
@@ -244,7 +238,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
                 reader.onerror = reject;
             });
     
-            const ai = new GoogleGenAI({ apiKey });
+            const ai = await getAI();
             const response = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
                 contents: {
@@ -461,10 +455,7 @@ const App: React.FC = () => {
 
     setSpeechState({ playing: true, forStep: stepId });
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error("Clave de API no disponible.");
-        
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = await getAI();
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-preview-tts",
             contents: [{ parts: [{ text }] }],
