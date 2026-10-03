@@ -1,0 +1,31 @@
+[Unit]
+Description=S.H.I.P. Framework Helper - Gemini proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ship
+Group=ship
+WorkingDirectory=/opt/ship-framework
+# Holds GEMINI_API_KEY. Owned by root, readable only by root and the ship group.
+EnvironmentFile=/etc/ship-framework/gemini.env
+ExecStart=/usr/bin/node server/gemini-proxy.mjs
+Restart=on-failure
+RestartSec=5
+
+# Hardening: the proxy only needs to read its own folder and talk to the network.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

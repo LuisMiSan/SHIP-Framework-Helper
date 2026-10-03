@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { Modality } from '@google/genai';
 import { onAuthStateChanged, User, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, FirestoreError } from 'firebase/firestore';
 import { 
     StepData, 
     ArchivedProject, 
@@ -14,6 +15,7 @@ import {
     GroundingChunk 
 } from './types';
 import { auth, db } from './lib/firebase';
+import { getAI } from './lib/ai';
 import { firestoreService } from './lib/firestoreService';
 import { useAppData } from './hooks/useAppData';
 import { useProject } from './hooks/useProject';
@@ -29,6 +31,7 @@ import SettingsModal from './components/SettingsModal';
 import SaveTemplateModal from './components/SaveTemplateModal';
 import AdminPanel from './components/AdminPanel';
 import LoginOverlay from './components/LoginOverlay';
+import PendingApprovalScreen from './components/PendingApprovalScreen';
 import LoadingSpinner from './components/LoadingSpinner';
 import TutorialOverlay from './components/TutorialOverlay';
 
@@ -165,11 +168,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
         } : step));
 
         try {
-            const apiKey = process.env.GEMINI_API_KEY;
-            if (!apiKey) {
-                throw new Error("Clave de API no disponible en el servidor.");
-            }
-            const ai = new GoogleGenAI({ apiKey });
+            const ai = await getAI();
             const context = {
                 solve: stepsData[0].userInput,
                 hypothesize: stepsData[1].userInput,
@@ -229,9 +228,6 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
 
     const handleTranscribeAudio = useCallback(async (index: number, blob: Blob) => {
         try {
-            const apiKey = process.env.GEMINI_API_KEY;
-            if (!apiKey) throw new Error("Clave de API no disponible.");
-
             const base64Audio = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(blob);
@@ -242,7 +238,7 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
                 reader.onerror = reject;
             });
     
-            const ai = new GoogleGenAI({ apiKey });
+            const ai = await getAI();
             const response = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
                 contents: {
@@ -377,7 +373,8 @@ const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, aiSettings
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  
+  const [accessStatus, setAccessStatus] = useState<'checking' | 'approved' | 'pending' | 'error'>('checking');
+
   const [view, setView] = useState<View>('welcome');
   const [selectedArchivedProject, setSelectedArchivedProject] = useState<ArchivedProject | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -393,6 +390,19 @@ const App: React.FC = () => {
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+  // Access check: Firestore rules only allow reading accessCheck/{uid} for approved users
+  useEffect(() => {
+    setAccessStatus('checking');
+    if (!currentUser) return;
+    let cancelled = false;
+    getDoc(doc(db, 'accessCheck', currentUser.uid))
+      .then(() => { if (!cancelled) setAccessStatus('approved'); })
+      .catch((error: FirestoreError) => {
+        if (!cancelled) setAccessStatus(error.code === 'permission-denied' ? 'pending' : 'error');
+      });
+    return () => { cancelled = true; };
+  }, [currentUser]);
 
   // Auth Listener
   useEffect(() => {
@@ -445,10 +455,7 @@ const App: React.FC = () => {
 
     setSpeechState({ playing: true, forStep: stepId });
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error("Clave de API no disponible.");
-        
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = await getAI();
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-preview-tts",
             contents: [{ parts: [{ text }] }],
@@ -561,6 +568,10 @@ const App: React.FC = () => {
 
   if (!isAuthReady) return <LoadingSpinner />;
   if (!currentUser) return <LoginOverlay onLogin={handleGoogleLogin} />;
+  if (accessStatus === 'checking') return <LoadingSpinner />;
+  if (accessStatus !== 'approved') {
+    return <PendingApprovalScreen email={currentUser.email} checkFailed={accessStatus === 'error'} onLogout={() => signOut(auth)} />;
+  }
 
   const renderContent = () => {
     switch (view) {
