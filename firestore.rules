@@ -5,25 +5,34 @@
 // Collection: users
 // Document ID: {userId}
 // Fields:
-//   - uid: string (required) - Firebase Auth UID
-//   - email: string (required) - User email
-//   - name: string (optional) - Display name
-//   - role: string (required) - 'admin' or 'client'
-//   - createdAt: string - ISO timestamp
+//   - settings: map - AI settings written by the app
+//   - role: string (optional) - 'admin' or 'client'. Set only from the Firebase console.
+//
+// Collection: allowedEmails
+// Document ID: {email} (lowercase, e.g. "cliente@empresa.com")
+// Fields: none required. The document existing is what grants access.
+// Managed only from the Firebase console; the app can neither read nor write it.
+//
+// Collection: accessCheck
+// Document ID: {userId}
+// No documents needed. The app reads accessCheck/{uid} to ask these rules
+// whether the signed-in user is approved (read allowed = approved).
 //
 // Collection: projects
 // Document ID: {projectId}
 // Fields:
+//   - id: string (required) - Same as the document ID
 //   - uid: string (required) - Owner UID
 //   - name: string (required) - Project name
 //   - savedAt: string (required) - ISO timestamp
 //   - status: string (required) - 'pending', 'success', 'failed'
 //   - data: list (required) - List of StepData objects
-//   - userProfile: map (required) - Client details
+//   - userProfile: map (required) - Client details (name, company, email, phone)
 //
 // Collection: templates
 // Document ID: {templateId}
 // Fields:
+//   - id: string
 //   - name: string (required)
 //   - createdAt: string (required)
 //   - createdBy: string (required) - UID of creator
@@ -38,7 +47,7 @@ service cloud.firestore {
     // ===============================================================
     // Helper Functions
     // ===============================================================
-    
+
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -49,8 +58,17 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "luismigsm@gmail.com" && request.auth.token.email_verified == true)); 
+        ((request.auth.token.email == "luismigsm@gmail.com" && request.auth.token.email_verified == true) ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'));
+    }
+
+    // Approved = admin, or a verified email listed in allowedEmails (added from the console).
+    function isApproved() {
+      return isAdmin() ||
+        (isAuthenticated() &&
+         request.auth.token.email_verified == true &&
+         exists(/databases/$(database)/documents/allowedEmails/$(request.auth.token.email)));
     }
 
     function hasRequiredFields(data, fields) {
@@ -61,32 +79,43 @@ service cloud.firestore {
       return data.keys().hasOnly(fields);
     }
 
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    function isShortString(value, maxSize) {
+      return value is string && value.size() <= maxSize;
     }
 
     // ===============================================================
     // Domain Validators
     // ===============================================================
 
-    function isValidUser(data) {
-      return hasRequiredFields(data, ['uid', 'email', 'role']) &&
-             data.uid == request.auth.uid &&
-             isValidEmail(data.email) &&
-             data.role in ['admin', 'client'] &&
-             data.name is string && data.name.size() < 100;
+    function isValidSettings(settings) {
+      return settings is map &&
+             settings.keys().hasOnly(['temperature', 'model', 'useThinkingMode', 'useGoogleSearch']);
     }
 
-    function isValidProject(data) {
-      return hasRequiredFields(data, ['uid', 'name', 'data', 'userProfile', 'status', 'savedAt']) &&
+    function isValidUserProfile(profile) {
+      return profile is map &&
+             profile.keys().hasOnly(['name', 'company', 'email', 'phone']) &&
+             isShortString(profile.get('name', ''), 200) &&
+             isShortString(profile.get('company', ''), 200) &&
+             isShortString(profile.get('email', ''), 200) &&
+             isShortString(profile.get('phone', ''), 50);
+    }
+
+    function isValidProject(data, projectId) {
+      return hasRequiredFields(data, ['id', 'uid', 'name', 'data', 'userProfile', 'status', 'savedAt']) &&
+             hasOnlyAllowedFields(data, ['id', 'uid', 'name', 'data', 'userProfile', 'status', 'savedAt']) &&
+             data.id == projectId &&
              data.uid == request.auth.uid &&
              data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             isShortString(data.savedAt, 40) &&
+             data.status in ['pending', 'success', 'failed'] &&
              data.data is list && data.data.size() <= 10 &&
-             data.userProfile is map;
+             isValidUserProfile(data.userProfile);
     }
 
     function isValidTemplate(data) {
       return hasRequiredFields(data, ['name', 'data', 'createdAt', 'createdBy']) &&
+             hasOnlyAllowedFields(data, ['id', 'name', 'data', 'createdAt', 'createdBy']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
              data.data is list && data.data.size() <= 10 &&
              data.createdBy == request.auth.uid;
@@ -96,21 +125,34 @@ service cloud.firestore {
     // Rules
     // ===============================================================
 
+    match /allowedEmails/{email} {
+      allow read, write: if false;
+    }
+
+    match /accessCheck/{userId} {
+      allow get: if isOwner(userId) && isApproved();
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'client' || isAdmin());
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+      // The app only stores AI settings here; role can only be changed from the console.
+      allow create: if isOwner(userId) && isApproved() &&
+                       request.resource.data.keys().hasOnly(['settings']) &&
+                       isValidSettings(request.resource.data.settings);
+      allow update: if isOwner(userId) && isApproved() &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['settings']) &&
+                       isValidSettings(request.resource.data.settings);
     }
 
     match /projects/{projectId} {
       allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && isValidProject(request.resource.data);
-      allow update: if isAuthenticated() && (resource.data.uid == request.auth.uid) && isValidProject(request.resource.data);
+      allow create: if isApproved() && isValidProject(request.resource.data, projectId);
+      allow update: if isApproved() && resource.data.uid == request.auth.uid && isValidProject(request.resource.data, projectId);
       allow delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
     }
 
     match /templates/{templateId} {
-      allow read: if isAuthenticated();
+      allow read: if isApproved();
       allow create: if isAdmin() && isValidTemplate(request.resource.data);
       allow update: if isAdmin() && isValidTemplate(request.resource.data);
       allow delete: if isAdmin();

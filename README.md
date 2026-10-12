@@ -15,6 +15,12 @@ View your app in AI Studio: https://ai.studio/apps/76dc7b1f-88fc-4bb6-92c1-4eecc
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Copy `.env.example` to `.env.local` and set your `GEMINI_API_KEY`
+3. Start the Gemini proxy (keeps the key on the server):
+   `npm run proxy`
+4. In another terminal, run the app:
    `npm run dev`
+
+## Deploy to a VPS
+
+See [DEPLOY.md](DEPLOY.md).
